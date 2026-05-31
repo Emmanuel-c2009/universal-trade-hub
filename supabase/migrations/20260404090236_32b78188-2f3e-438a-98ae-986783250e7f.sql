@@ -1,0 +1,1 @@
+ALTER TABLE public.mt5_configurations ADD COLUMN IF NOT EXISTS timeframe_minutes INTEGER DEFAULT 10;

