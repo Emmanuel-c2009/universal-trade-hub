@@ -11,8 +11,153 @@ import { useToast } from "@/hooks/use-toast";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { BottomNav } from "@/components/dashboard/BottomNav";
-import { CheckCircle, XCircle, AlertTriangle } from "lucide-react";
-import { COUNTRIES, NATIONALITIES } from "@/lib/locationData";
+import { CheckCircle, XCircle, AlertTriangle, Search } from "lucide-react";
+
+// ============ COMPLETE COUNTRY LIST (195 - UN Members + Observers) ============
+const COUNTRIES = [
+  "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Antigua and Barbuda", "Argentina", "Armenia",
+  "Australia", "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus",
+  "Belgium", "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil",
+  "Brunei", "Bulgaria", "Burkina Faso", "Burundi", "Cabo Verde", "Cambodia", "Cameroon", "Canada",
+  "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", "Costa Rica",
+  "Côte d'Ivoire", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica",
+  "Dominican Republic", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", "Eritrea", "Estonia",
+  "Eswatini", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", "Georgia", "Germany",
+  "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", "Guyana", "Haiti",
+  "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", "Ireland", "Israel",
+  "Italy", "Jamaica", "Japan", "Jordan", "Kazakhstan", "Kenya", "Kiribati", "Kosovo", "Kuwait",
+  "Kyrgyzstan", "Laos", "Latvia", "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein",
+  "Lithuania", "Luxembourg", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta",
+  "Marshall Islands", "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco",
+  "Mongolia", "Montenegro", "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal",
+  "Netherlands", "New Zealand", "Nicaragua", "Niger", "Nigeria", "North Korea", "North Macedonia",
+  "Norway", "Oman", "Pakistan", "Palau", "Palestine", "Panama", "Papua New Guinea", "Paraguay",
+  "Peru", "Philippines", "Poland", "Portugal", "Qatar", "Romania", "Russia", "Rwanda",
+  "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines", "Samoa", "San Marino",
+  "Sao Tome and Principe", "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone",
+  "Singapore", "Slovakia", "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Korea",
+  "South Sudan", "Spain", "Sri Lanka", "Sudan", "Suriname", "Sweden", "Switzerland", "Syria",
+  "Taiwan", "Tajikistan", "Tanzania", "Thailand", "Timor-Leste", "Togo", "Tonga", "Trinidad and Tobago",
+  "Tunisia", "Turkey", "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates",
+  "United Kingdom", "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela",
+  "Vietnam", "Yemen", "Zambia", "Zimbabwe"
+];
+
+// ============ COMPLETE NATIONALITY LIST (A-Z) ============
+const NATIONALITIES = [
+  "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine", "Armenian",
+  "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian",
+  "Belarusian", "Belgian", "Belizean", "Beninese", "Bhutanese", "Bolivian", "Bosnian", "Botswanan",
+  "Brazilian", "British", "Bruneian", "Bulgarian", "Burkinabe", "Burundian", "Cambodian",
+  "Cameroonian", "Canadian", "Central African", "Chadian", "Chilean", "Chinese", "Colombian",
+  "Comoran", "Congolese", "Costa Rican", "Croatian", "Cuban", "Cypriot", "Czech", "Danish",
+  "Djiboutian", "Dominican", "Dutch", "Ecuadorean", "Egyptian", "Emirati", "Equatorial Guinean",
+  "Eritrean", "Estonian", "Eswatini", "Ethiopian", "Fijian", "Filipino", "Finnish", "French",
+  "Gabonese", "Gambian", "Georgian", "German", "Ghanaian", "Greek", "Grenadian", "Guatemalan",
+  "Guinean", "Guyanese", "Haitian", "Honduran", "Hungarian", "Icelandic", "Indian", "Indonesian",
+  "Iranian", "Iraqi", "Irish", "Israeli", "Italian", "Jamaican", "Japanese", "Jordanian",
+  "Kazakhstani", "Kenyan", "Kiribati", "Kosovan", "Kuwaiti", "Kyrgyzstani", "Laotian", "Latvian",
+  "Lebanese", "Liberian", "Libyan", "Liechtenstein", "Lithuanian", "Luxembourgish", "Malagasy",
+  "Malawian", "Malaysian", "Maldivian", "Malian", "Maltese", "Marshallese", "Mauritanian",
+  "Mauritian", "Mexican", "Micronesian", "Moldovan", "Monegasque", "Mongolian", "Montenegrin",
+  "Moroccan", "Mozambican", "Myanmar", "Namibian", "Nauruan", "Nepalese", "New Zealander",
+  "Nicaraguan", "Nigerien", "Nigerian", "North Korean", "North Macedonian", "Norwegian", "Omani",
+  "Pakistani", "Palauan", "Palestinian", "Panamanian", "Papua New Guinean", "Paraguayan", "Peruvian",
+  "Polish", "Portuguese", "Qatari", "Romanian", "Russian", "Rwandan", "Saint Lucian", "Salvadoran",
+  "Samoan", "San Marinese", "Sao Tomean", "Saudi", "Senegalese", "Serbian", "Seychellois",
+  "Sierra Leonean", "Singaporean", "Slovak", "Slovenian", "Solomon Islander", "Somali", "South African",
+  "South Korean", "South Sudanese", "Spanish", "Sri Lankan", "Sudanese", "Surinamese", "Swedish",
+  "Swiss", "Syrian", "Taiwanese", "Tajik", "Tanzanian", "Thai", "Timorese", "Togolese", "Tongan",
+  "Trinidadian", "Tunisian", "Turkish", "Turkmen", "Tuvaluan", "Ugandan", "Ukrainian", "Uruguayan",
+  "Uzbek", "Vanuatuan", "Vatican", "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
+];
+
+// ============ AUTOCOMPLETE COMPONENT ============
+interface AutocompleteSelectProps {
+  label: string;
+  options: string[];
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+  required?: boolean;
+}
+
+function AutocompleteSelect({ label, options, value, onChange, placeholder, required }: AutocompleteSelectProps) {
+  const [searchTerm, setSearchTerm] = useState(value);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [filteredOptions, setFilteredOptions] = useState<string[]>([]);
+
+  useEffect(() => {
+    setSearchTerm(value);
+  }, [value]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const term = e.target.value;
+    setSearchTerm(term);
+    onChange(term);
+    
+    if (term.length > 0) {
+      const filtered = options.filter(option =>
+        option.toLowerCase().includes(term.toLowerCase())
+      );
+      setFilteredOptions(filtered.slice(0, 15)); // Show top 15 matches
+      setShowSuggestions(true);
+    } else {
+      setFilteredOptions(options.slice(0, 15));
+      setShowSuggestions(true);
+    }
+  };
+
+  const handleSelectOption = (option: string) => {
+    setSearchTerm(option);
+    onChange(option);
+    setShowSuggestions(false);
+  };
+
+  return (
+    <div className="relative">
+      <Label>{label}</Label>
+      <div className="relative mt-1">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          type="text"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          onFocus={() => {
+            setFilteredOptions(options.slice(0, 15));
+            setShowSuggestions(true);
+          }}
+          onBlur={() => {
+            // Delay to allow click on suggestion
+            setTimeout(() => setShowSuggestions(false), 200);
+          }}
+          placeholder={placeholder}
+          className="pl-9"
+          required={required}
+        />
+      </div>
+      {showSuggestions && filteredOptions.length > 0 && (
+        <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {filteredOptions.map((option) => (
+            <div
+              key={option}
+              className="px-4 py-2 hover:bg-secondary cursor-pointer text-sm transition-colors"
+              onClick={() => handleSelectOption(option)}
+              onMouseDown={(e) => e.preventDefault()}
+            >
+              {option}
+            </div>
+          ))}
+          {filteredOptions.length === 0 && searchTerm && (
+            <div className="px-4 py-2 text-sm text-muted-foreground">
+              No matching options. You can type custom text.
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 const TWO_SIDED_IDS = ["drivers_license", "national_id", "voters_card"];
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
@@ -42,7 +187,8 @@ export default function Verification() {
     city: "",
     streetAddress: "",
     postalCode: "",
-    phone: "",  // Added phone field
+    phone: "",
+    telegramUsername: "",
   });
 
   const [formData, setFormData] = useState({
@@ -74,7 +220,6 @@ export default function Verification() {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
     if (data) {
       setProfile(data);
-      // Pre-fill phone if exists in profile
       if (data.phone) {
         setPersonal(prev => ({ ...prev, phone: data.phone }));
       }
@@ -130,18 +275,19 @@ export default function Verification() {
   const needsBack = TWO_SIDED_IDS.includes(formData.idType);
   const isIdComplete = () => formData.idType && formData.idDocumentFront && (!needsBack || formData.idDocumentBack);
 
-  const sendNotification = async (type: string, eventData: any, documentUrls: any = null) => {
+  const sendVerificationNotification = async (type: string, email: string, fullName: string, rejectionReason?: string) => {
     try {
       const body: any = {
-        notification_type: type,
-        event_data: eventData,
+        email: email,
+        fullName: fullName,
+        type: type,
       };
-      if (documentUrls) {
-        body.document_urls = documentUrls;
+      if (rejectionReason) {
+        body.rejectionReason = rejectionReason;
       }
-      await supabase.functions.invoke("send-email", { body });
+      await supabase.functions.invoke("send-verification-email", { body });
     } catch (error) {
-      console.error("Notification error:", error);
+      console.error("Verification notification error:", error);
     }
   };
 
@@ -162,10 +308,10 @@ export default function Verification() {
       const utilityPath = await uploadFile(formData.utilityBill!, "utility-bills");
       const selfiePath = await uploadFile(formData.selfie!, "selfies");
 
-      // Include phone in personal_info
       const personalInfoWithPhone = {
         ...personal,
         phone: personal.phone || null,
+        telegramUsername: personal.telegramUsername || null,
       };
 
       const { error } = await (supabase as any).from("user_verifications").insert({
@@ -181,34 +327,13 @@ export default function Verification() {
 
       if (error) throw error;
 
-      // Also update the profiles table with phone number if provided
       const profileUpdate: any = { profile_status: "pending" };
       if (personal.phone) {
         profileUpdate.phone = personal.phone;
       }
       await supabase.from("profiles").update(profileUpdate).eq("id", user.id);
 
-      // Send notification with document images
-      await sendNotification("verification_submitted", {
-        user_name: profile?.full_name || user.email,
-        user_email: user.email,
-        id_type: formData.idType,
-        phone: personal.phone || "Not provided",
-      }, {
-        id_front: idFrontPath ? getFullImageUrl(idFrontPath) : null,
-        id_back: idBackPath ? getFullImageUrl(idBackPath) : null,
-        proof_of_address: utilityPath ? getFullImageUrl(utilityPath) : null,
-        selfie: selfiePath ? getFullImageUrl(selfiePath) : null,
-      });
-
-      // Email user — under review
-      supabase.functions.invoke("send-email", {
-        body: {
-          template_name: "verification_under_review",
-          recipient_email: user.email,
-          variables: { user_name: profile?.full_name || user.email },
-        },
-      }).catch((e) => console.warn("User email failed:", e));
+      await sendVerificationNotification("submission", user.email, profile?.full_name || user.email);
 
       toast({ title: "✅ Application submitted", description: "Under review. Redirecting…" });
       setTimeout(() => navigate("/dashboard"), 2000);
@@ -225,7 +350,7 @@ export default function Verification() {
     setRejectionReason(null);
     setCurrentStep(1);
     setFormData({ idType: "", idDocumentFront: null, idDocumentBack: null, utilityType: "", utilityBill: null, selfie: null });
-    setPersonal({ dateOfBirth: "", nationality: "", countryOfResidence: "", city: "", streetAddress: "", postalCode: "", phone: "" });
+    setPersonal({ dateOfBirth: "", nationality: "", countryOfResidence: "", city: "", streetAddress: "", postalCode: "", phone: "", telegramUsername: "" });
   };
 
   const userName = profile?.full_name || user?.email?.split("@")[0] || "User";
@@ -316,16 +441,30 @@ export default function Verification() {
               <div><Label>Full Name</Label><Input value={profile?.full_name || ""} disabled readOnly /></div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div><Label htmlFor="dob">Date of Birth</Label><Input id="dob" type="date" value={personal.dateOfBirth} onChange={(e) => setPersonal({ ...personal, dateOfBirth: e.target.value })} /></div>
-                <div><Label>Nationality</Label><Select value={personal.nationality} onValueChange={(v) => setPersonal({ ...personal, nationality: v })}><SelectTrigger><SelectValue placeholder="Select nationality" /></SelectTrigger><SelectContent className="max-h-72">{NATIONALITIES.map((n) => <SelectItem key={n} value={n}>{n}</SelectItem>)}</SelectContent></Select></div>
+                <AutocompleteSelect
+                  label="Nationality"
+                  options={NATIONALITIES}
+                  value={personal.nationality}
+                  onChange={(value) => setPersonal({ ...personal, nationality: value })}
+                  placeholder="Type or select your nationality"
+                  required
+                />
               </div>
-              <div><Label>Country of Residence</Label><Select value={personal.countryOfResidence} onValueChange={(v) => setPersonal({ ...personal, countryOfResidence: v })}><SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger><SelectContent className="max-h-72">{COUNTRIES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+              <AutocompleteSelect
+                label="Country of Residence"
+                options={COUNTRIES}
+                value={personal.countryOfResidence}
+                onChange={(value) => setPersonal({ ...personal, countryOfResidence: value })}
+                placeholder="Type or select your country"
+                required
+              />
               <div><Label htmlFor="street">Street Address</Label><Input id="street" value={personal.streetAddress} onChange={(e) => setPersonal({ ...personal, streetAddress: e.target.value })} /></div>
               <div className="grid md:grid-cols-2 gap-4">
                 <div><Label htmlFor="city">City</Label><Input id="city" value={personal.city} onChange={(e) => setPersonal({ ...personal, city: e.target.value })} /></div>
                 <div><Label htmlFor="postal">Postal Code</Label><Input id="postal" value={personal.postalCode} onChange={(e) => setPersonal({ ...personal, postalCode: e.target.value })} /></div>
               </div>
-              {/* NEW: Phone Number Field */}
               <div><Label htmlFor="phone">Phone Number (Optional but recommended)</Label><Input id="phone" type="tel" placeholder="+1234567890" value={personal.phone} onChange={(e) => setPersonal({ ...personal, phone: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">For account recovery and important notifications</p></div>
+              <div><Label htmlFor="telegram">Telegram Username (Optional)</Label><Input id="telegram" type="text" placeholder="@username or just username" value={personal.telegramUsername} onChange={(e) => setPersonal({ ...personal, telegramUsername: e.target.value })} /><p className="text-xs text-muted-foreground mt-1">Receive real-time notifications via Telegram about your trades, withdrawals, and account updates.</p></div>
               <Button onClick={() => setCurrentStep(2)} disabled={!isPersonalComplete()} className="w-full">Continue</Button>
             </div>
           </Card>
