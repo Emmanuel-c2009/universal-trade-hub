@@ -32,10 +32,7 @@ export default function Settings() {
   const [verification, setVerification] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [changingPassword, setChangingPassword] = useState(false);
+  const [sendingResetLink, setSendingResetLink] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -111,76 +108,33 @@ export default function Settings() {
     }
   };
 
-  const handlePasswordChange = async () => {
-    if (!currentPassword) {
-      toast({
-        title: "Current password required",
-        description: "Please enter your current password",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      toast({
-        title: "Passwords don't match",
-        description: "Please make sure your passwords match",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      toast({
-        title: "Password too short",
-        description: "Password must be at least 8 characters",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setChangingPassword(true);
+  const handleSendResetLink = async () => {
+    setSendingResetLink(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("No session found");
-
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: session.user.email!,
-        password: currentPassword,
-      });
-
-      if (signInError) {
-        toast({
-          title: "Current password is incorrect",
-          description: "Please enter your correct current password",
-          variant: "destructive",
-        });
-        setChangingPassword(false);
-        return;
+      if (!session?.user?.email) {
+        throw new Error("No email found");
       }
 
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
+      const { error } = await supabase.auth.resetPasswordForEmail(session.user.email, {
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) throw error;
 
       toast({
-        title: "Password updated",
-        description: "Your password has been changed successfully. Please sign in again.",
+        title: "Reset link sent",
+        description: `Check your email at ${session.user.email} for the password reset link.`,
       });
-
-      setTimeout(() => {
-        handleSignOut();
-      }, 2000);
     } catch (error: any) {
+      console.error("Reset link error:", error);
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send reset link. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setChangingPassword(false);
+      setSendingResetLink(false);
     }
   };
 
@@ -349,7 +303,7 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Password Change */}
+          {/* Password Change - Using Reset Password Flow */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -358,46 +312,22 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="currentPassword">Current Password</Label>
-                <Input
-                  id="currentPassword"
-                  type="password"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="Enter your current password"
-                />
+              <div className="bg-muted/50 p-4 rounded-lg">
+                <p className="text-sm text-muted-foreground mb-3">
+                  To change your password, we'll send a password reset link to your email address.
+                </p>
+                <Button
+                  variant="outline"
+                  onClick={handleSendResetLink}
+                  disabled={sendingResetLink}
+                >
+                  {sendingResetLink ? "Sending..." : "Send Password Reset Link"}
+                </Button>
               </div>
-              <div>
-                <Label htmlFor="newPassword">New Password</Label>
-                <Input
-                  id="newPassword"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password (min 8 characters)"
-                />
-              </div>
-              <div>
-                <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input
-                  id="confirmPassword"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Confirm new password"
-                />
-              </div>
-              <Button
-                onClick={handlePasswordChange}
-                disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-              >
-                {changingPassword ? "Updating..." : "Update Password"}
-              </Button>
             </CardContent>
           </Card>
 
-          {/* Appearance - Working Light/Dark Mode Toggle */}
+          {/* Appearance */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
