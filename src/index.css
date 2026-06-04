@@ -10,7 +10,7 @@ All colors MUST be HSL.
   :root {
     /* Universal Stock Trade Design System - EU Trading Platform */
     
-    /* Core Brand Colors */
+    /* Core Brand Colors - DARK MODE (default) */
     --background: 222 47% 11%;
     --foreground: 0 0% 100%;
     
@@ -70,7 +70,7 @@ All colors MUST be HSL.
     --chart-5: 340 75% 55%;
   }
 
-  /* Dark Theme */
+  /* Dark Theme (explicit) */
   [data-theme="dark"] {
     --background: 222 47% 11%;
     --foreground: 0 0% 100%;
@@ -95,6 +95,41 @@ All colors MUST be HSL.
     --input: 220 40% 15%;
     --ring: 45 100% 50%;
   }
+
+  /* Light Theme - ADD THIS BLOCK */
+  [data-theme="light"] {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 98%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 98%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 220 70% 25%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 220 70% 35%;
+    --secondary: 200 100% 50%;
+    --secondary-foreground: 0 0% 100%;
+    --accent: 45 100% 50%;
+    --accent-foreground: 222 47% 11%;
+    --gold: 45 100% 50%;
+    --gold-glow: 45 100% 60%;
+    --muted: 220 14% 90%;
+    --muted-foreground: 220 10% 40%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 85%;
+    --input: 220 13% 90%;
+    --ring: 45 100% 50%;
+    
+    /* Light mode gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(220 70% 95%) 0%, hsl(220 70% 85%) 100%);
+    --gradient-hero: linear-gradient(180deg, hsl(0 0% 98%) 0%, hsl(0 0% 95%) 100%);
+    --gradient-gold: linear-gradient(135deg, hsl(45 100% 50%) 0%, hsl(45 100% 55%) 100%);
+    --gradient-blue: linear-gradient(135deg, hsl(200 100% 50%) 0%, hsl(220 70% 45%) 100%);
+    
+    /* Light mode shadows */
+    --shadow-card: 0 10px 40px hsl(0 0% 0% / 0.1);
+  }
 }
 
 @layer base {
@@ -110,16 +145,6 @@ All colors MUST be HSL.
   /* Smooth scrolling */
   html {
     scroll-behavior: smooth;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-
-  body {
-    @apply bg-background text-foreground;
   }
 }
 

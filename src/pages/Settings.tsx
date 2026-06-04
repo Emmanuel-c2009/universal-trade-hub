@@ -1,16 +1,13 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
 import {
   User,
   Shield,
   Key,
-  Bell,
   Moon,
   Sun,
   LogOut,
   ChevronRight,
-  Check,
   AlertCircle,
   Clock,
   Smartphone,
@@ -39,6 +36,7 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
+  const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
@@ -51,7 +49,6 @@ export default function Settings() {
         return;
       }
 
-      // Fetch profile
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
@@ -60,7 +57,6 @@ export default function Settings() {
 
       if (profileData) setProfile(profileData);
 
-      // Fetch verification status
       const { data: verificationData } = await supabase
         .from("user_verifications")
         .select("*")
@@ -77,7 +73,54 @@ export default function Settings() {
     fetchData();
   }, [navigate]);
 
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+      return "Tablet";
+    }
+    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+      return "Mobile Phone";
+    }
+    return "Desktop / Laptop";
+  };
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    try {
+      localStorage.removeItem('supabase.auth.token');
+      sessionStorage.clear();
+      
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      
+      toast({
+        title: "Signed out",
+        description: "You have been successfully signed out",
+      });
+      
+      navigate("/");
+    } catch (error: any) {
+      console.error("Sign out error:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to sign out. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   const handlePasswordChange = async () => {
+    if (!currentPassword) {
+      toast({
+        title: "Current password required",
+        description: "Please enter your current password",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (newPassword !== confirmPassword) {
       toast({
         title: "Passwords don't match",
@@ -98,6 +141,24 @@ export default function Settings() {
 
     setChangingPassword(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No session found");
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: session.user.email!,
+        password: currentPassword,
+      });
+
+      if (signInError) {
+        toast({
+          title: "Current password is incorrect",
+          description: "Please enter your correct current password",
+          variant: "destructive",
+        });
+        setChangingPassword(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
@@ -106,12 +167,12 @@ export default function Settings() {
 
       toast({
         title: "Password updated",
-        description: "Your password has been changed successfully",
+        description: "Your password has been changed successfully. Please sign in again.",
       });
 
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
+      setTimeout(() => {
+        handleSignOut();
+      }, 2000);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -123,13 +184,8 @@ export default function Settings() {
     }
   };
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
   const getVerificationStatus = () => {
-    if (!verification) return { status: "unverified", color: "bg-muted" };
+    if (!verification) return { status: "Unverified", color: "bg-muted" };
     switch (verification.status) {
       case "approved":
         return { status: "Verified", color: "bg-emerald-500" };
@@ -303,13 +359,23 @@ export default function Settings() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
+                <Label htmlFor="currentPassword">Current Password</Label>
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="Enter your current password"
+                />
+              </div>
+              <div>
                 <Label htmlFor="newPassword">New Password</Label>
                 <Input
                   id="newPassword"
                   type="password"
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Enter new password"
+                  placeholder="Enter new password (min 8 characters)"
                 />
               </div>
               <div>
@@ -324,16 +390,14 @@ export default function Settings() {
               </div>
               <Button
                 onClick={handlePasswordChange}
-                disabled={
-                  changingPassword || !newPassword || !confirmPassword
-                }
+                disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
               >
                 {changingPassword ? "Updating..." : "Update Password"}
               </Button>
             </CardContent>
           </Card>
 
-          {/* Theme Preference */}
+          {/* Appearance - Working Light/Dark Mode Toggle */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -348,20 +412,27 @@ export default function Settings() {
             <CardContent>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Dark Mode</p>
+                  <p className="font-medium">Theme Mode</p>
                   <p className="text-sm text-muted-foreground">
-                    Switch between light and dark themes
+                    {theme === "dark" ? "Dark mode" : "Light mode"} is currently active
                   </p>
                 </div>
-                <Switch
-                  checked={theme === "dark"}
-                  onCheckedChange={toggleTheme}
-                />
+                <div className="flex items-center gap-2">
+                  <Sun className="w-4 h-4 text-muted-foreground" />
+                  <Switch
+                    checked={theme === "dark"}
+                    onCheckedChange={() => {
+                      toggleTheme();
+                      localStorage.setItem('theme', theme === 'dark' ? 'light' : 'dark');
+                    }}
+                  />
+                  <Moon className="w-4 h-4 text-muted-foreground" />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Sessions/Devices - Placeholder */}
+          {/* Active Sessions */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -370,22 +441,31 @@ export default function Settings() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                    <Smartphone className="w-5 h-5" />
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
+                      <Smartphone className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="font-medium">Current Session</p>
+                      <p className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Active now
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Device: {getDeviceInfo()}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="font-medium">Current Session</p>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      Active now
-                    </p>
-                  </div>
+                  <Badge variant="outline" className="text-emerald-500">
+                    This Device
+                  </Badge>
                 </div>
-                <Badge variant="outline" className="text-emerald-500">
-                  This Device
-                </Badge>
+                <Separator />
+                <p className="text-xs text-muted-foreground text-center">
+                  To manage all active sessions across all devices, please contact support.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -400,9 +480,13 @@ export default function Settings() {
                     Sign out of your account on this device
                   </p>
                 </div>
-                <Button variant="destructive" onClick={handleSignOut}>
+                <Button 
+                  variant="destructive" 
+                  onClick={handleSignOut}
+                  disabled={signingOut}
+                >
                   <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
+                  {signingOut ? "Signing out..." : "Sign Out"}
                 </Button>
               </div>
             </CardContent>
