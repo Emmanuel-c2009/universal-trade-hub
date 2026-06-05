@@ -11,6 +11,8 @@ import {
   AlertCircle,
   Clock,
   Smartphone,
+  Laptop,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +32,7 @@ import { format } from "date-fns";
 export default function Settings() {
   const [profile, setProfile] = useState<any>(null);
   const [verification, setVerification] = useState<any>(null);
+  const [loginHistory, setLoginHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sendingResetLink, setSendingResetLink] = useState(false);
@@ -37,6 +40,83 @@ export default function Settings() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
+
+  // Get device info from browser
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    
+    let browser = "Unknown";
+    if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) browser = "Chrome";
+    else if (ua.includes("Firefox")) browser = "Firefox";
+    else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+    else if (ua.includes("Edg")) browser = "Edge";
+    else if (ua.includes("OPR") || ua.includes("Opera")) browser = "Opera";
+    
+    let os = "Unknown";
+    if (ua.includes("Windows")) os = "Windows";
+    else if (ua.includes("Mac OS")) os = "macOS";
+    else if (ua.includes("Linux") && !ua.includes("Android")) os = "Linux";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod")) os = "iOS";
+    
+    let device = "Desktop";
+    if (/(mobile|android|iphone|ipod|blackberry|windows phone)/i.test(ua)) device = "Mobile";
+    else if (/(tablet|ipad|playbook|silk)/i.test(ua)) device = "Tablet";
+    
+    return { device, browser, os };
+  };
+
+  // Record this login session
+  const recordCurrentLogin = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const { device, browser, os } = getDeviceInfo();
+      
+      // Check if we already recorded a login for this session (using localStorage)
+      const lastRecorded = localStorage.getItem('last_login_recorded');
+      const now = new Date().toDateString();
+      
+      if (lastRecorded !== now) {
+        // Insert new login record
+        await supabase.from("user_logins").insert({
+          user_id: session.user.id,
+          login_at: new Date().toISOString(),
+          device_type: device,
+          browser: browser,
+          os: os
+        });
+        localStorage.setItem('last_login_recorded', now);
+      }
+    } catch (error) {
+      console.error("Error recording login:", error);
+    }
+  };
+
+  const fetchLoginHistory = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from("user_logins")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("login_at", { ascending: false });
+
+      if (error) throw error;
+
+      const historyWithCurrent = (data || []).map((item, index) => ({
+        ...item,
+        is_current: index === 0
+      }));
+
+      setLoginHistory(historyWithCurrent);
+    } catch (error) {
+      console.error("Error fetching login history:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -64,28 +144,22 @@ export default function Settings() {
 
       if (verificationData) setVerification(verificationData);
 
+      // Record this login and fetch history
+      await recordCurrentLogin();
+      await fetchLoginHistory();
+
       setLoading(false);
     };
 
     fetchData();
   }, [navigate]);
 
-  const getDeviceInfo = () => {
-    const ua = navigator.userAgent;
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
-      return "Tablet";
-    }
-    if (/Mobile|Android|iP(hone|od)|IEMobile|BlackBerry|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
-      return "Mobile Phone";
-    }
-    return "Desktop / Laptop";
-  };
-
   const handleSignOut = async () => {
     setSigningOut(true);
     try {
       localStorage.removeItem('supabase.auth.token');
       sessionStorage.clear();
+      localStorage.removeItem('last_login_recorded');
       
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
@@ -116,9 +190,7 @@ export default function Settings() {
         throw new Error("No email found");
       }
 
-      const { error } = await supabase.auth.resetPasswordForEmail(session.user.email, {
-        redirectTo: `${window.location.origin}/reset-password`,
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(session.user.email);
 
       if (error) throw error;
 
@@ -136,6 +208,12 @@ export default function Settings() {
     } finally {
       setSendingResetLink(false);
     }
+  };
+
+  const getDeviceIcon = (deviceType: string) => {
+    if (deviceType === "Mobile") return <Smartphone className="w-4 h-4" />;
+    if (deviceType === "Tablet") return <Monitor className="w-4 h-4" />;
+    return <Laptop className="w-4 h-4" />;
   };
 
   const getVerificationStatus = () => {
@@ -246,9 +324,7 @@ export default function Settings() {
             <CardContent>
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
-                  <div
-                    className={`w-3 h-3 rounded-full ${verificationStatus.color}`}
-                  />
+                  <div className={`w-3 h-3 rounded-full ${verificationStatus.color}`} />
                   <div>
                     <p className="font-medium">{verificationStatus.status}</p>
                     <p className="text-sm text-muted-foreground">
@@ -286,9 +362,7 @@ export default function Settings() {
                     Your account is currently active
                   </p>
                 </div>
-                <Badge className="bg-emerald-500/20 text-emerald-500">
-                  Active
-                </Badge>
+                <Badge className="bg-emerald-500/20 text-emerald-500">Active</Badge>
               </div>
               <Separator />
               <div className="flex items-center justify-between">
@@ -303,7 +377,7 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Password Change - Using Reset Password Flow */}
+          {/* Change Password */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -314,7 +388,7 @@ export default function Settings() {
             <CardContent className="space-y-4">
               <div className="bg-muted/50 p-4 rounded-lg">
                 <p className="text-sm text-muted-foreground mb-3">
-                  To change your password, we'll send a password reset link to your email address.
+                  We'll send a password reset link to your email address.
                 </p>
                 <Button
                   variant="outline"
@@ -331,11 +405,7 @@ export default function Settings() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                {theme === "dark" ? (
-                  <Moon className="w-5 h-5 text-secondary" />
-                ) : (
-                  <Sun className="w-5 h-5 text-secondary" />
-                )}
+                {theme === "dark" ? <Moon className="w-5 h-5 text-secondary" /> : <Sun className="w-5 h-5 text-secondary" />}
                 Appearance
               </CardTitle>
             </CardHeader>
@@ -362,39 +432,62 @@ export default function Settings() {
             </CardContent>
           </Card>
 
-          {/* Active Sessions */}
+          {/* Login History */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Smartphone className="w-5 h-5 text-secondary" />
-                Active Sessions
+                Login History
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                      <Smartphone className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Current Session</p>
-                      <p className="text-sm text-muted-foreground flex items-center gap-1">
-                        <Clock className="w-3 h-3" />
-                        Active now
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Device: {getDeviceInfo()}
-                      </p>
-                    </div>
+                {loginHistory.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    No login history available.
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {loginHistory.slice(0, 5).map((login) => (
+                      <div
+                        key={login.id}
+                        className={`flex items-start justify-between p-3 rounded-lg ${
+                          login.is_current ? "bg-secondary/10 border border-secondary/20" : "bg-muted/30"
+                        }`}
+                      >
+                        <div className="space-y-1 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {getDeviceIcon(login.device_type)}
+                            <span className="text-sm font-medium">
+                              {login.device_type || "Desktop"} · {login.browser || "Unknown"}
+                            </span>
+                            {login.is_current && (
+                              <Badge variant="outline" className="text-emerald-500 text-xs">
+                                Current
+                              </Badge>
+                            )}
+                          </div>
+                          {login.os && login.os !== "Unknown" && (
+                            <div className="text-xs text-muted-foreground">
+                              {login.os}
+                            </div>
+                          )}
+                        </div>
+                        <div className="text-right ml-4">
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(login.login_at).toLocaleDateString()}
+                          </p>
+                          <p className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(login.login_at).toLocaleTimeString()}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <Badge variant="outline" className="text-emerald-500">
-                    This Device
-                  </Badge>
-                </div>
+                )}
                 <Separator />
                 <p className="text-xs text-muted-foreground text-center">
-                  To manage all active sessions across all devices, please contact support.
+                  Showing last 5 logins. Logins older than 7 days are automatically deleted.
                 </p>
               </div>
             </CardContent>
@@ -410,11 +503,7 @@ export default function Settings() {
                     Sign out of your account on this device
                   </p>
                 </div>
-                <Button 
-                  variant="destructive" 
-                  onClick={handleSignOut}
-                  disabled={signingOut}
-                >
+                <Button variant="destructive" onClick={handleSignOut} disabled={signingOut}>
                   <LogOut className="w-4 h-4 mr-2" />
                   {signingOut ? "Signing out..." : "Sign Out"}
                 </Button>
