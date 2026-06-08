@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import {
   User,
   Shield,
-  Key,
   Moon,
   Sun,
   LogOut,
@@ -35,88 +34,10 @@ export default function Settings() {
   const [loginHistory, setLoginHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sendingResetLink, setSendingResetLink] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const { theme, toggleTheme } = useTheme();
-
-  // Get device info from browser
-  const getDeviceInfo = () => {
-    const ua = navigator.userAgent;
-    
-    let browser = "Unknown";
-    if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) browser = "Chrome";
-    else if (ua.includes("Firefox")) browser = "Firefox";
-    else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
-    else if (ua.includes("Edg")) browser = "Edge";
-    else if (ua.includes("OPR") || ua.includes("Opera")) browser = "Opera";
-    
-    let os = "Unknown";
-    if (ua.includes("Windows")) os = "Windows";
-    else if (ua.includes("Mac OS")) os = "macOS";
-    else if (ua.includes("Linux") && !ua.includes("Android")) os = "Linux";
-    else if (ua.includes("Android")) os = "Android";
-    else if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod")) os = "iOS";
-    
-    let device = "Desktop";
-    if (/(mobile|android|iphone|ipod|blackberry|windows phone)/i.test(ua)) device = "Mobile";
-    else if (/(tablet|ipad|playbook|silk)/i.test(ua)) device = "Tablet";
-    
-    return { device, browser, os };
-  };
-
-  // Record this login session
-  const recordCurrentLogin = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      
-      const { device, browser, os } = getDeviceInfo();
-      
-      // Check if we already recorded a login for this session (using localStorage)
-      const lastRecorded = localStorage.getItem('last_login_recorded');
-      const now = new Date().toDateString();
-      
-      if (lastRecorded !== now) {
-        // Insert new login record
-        await supabase.from("user_logins").insert({
-          user_id: session.user.id,
-          login_at: new Date().toISOString(),
-          device_type: device,
-          browser: browser,
-          os: os
-        });
-        localStorage.setItem('last_login_recorded', now);
-      }
-    } catch (error) {
-      console.error("Error recording login:", error);
-    }
-  };
-
-  const fetchLoginHistory = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const { data, error } = await supabase
-        .from("user_logins")
-        .select("*")
-        .eq("user_id", session.user.id)
-        .order("login_at", { ascending: false });
-
-      if (error) throw error;
-
-      const historyWithCurrent = (data || []).map((item, index) => ({
-        ...item,
-        is_current: index === 0
-      }));
-
-      setLoginHistory(historyWithCurrent);
-    } catch (error) {
-      console.error("Error fetching login history:", error);
-    }
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -144,7 +65,7 @@ export default function Settings() {
 
       if (verificationData) setVerification(verificationData);
 
-      // Record this login and fetch history
+      await fetchLoginHistory();
       await recordCurrentLogin();
       await fetchLoginHistory();
 
@@ -153,6 +74,79 @@ export default function Settings() {
 
     fetchData();
   }, [navigate]);
+
+  const fetchLoginHistory = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase
+        .from("user_logins")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .order("login_at", { ascending: false });
+
+      if (error) throw error;
+
+      const historyWithCurrent = (data || []).map((item, index) => ({
+        ...item,
+        is_current: index === 0
+      }));
+
+      setLoginHistory(historyWithCurrent);
+    } catch (error) {
+      console.error("Error fetching login history:", error);
+    }
+  };
+
+  const getDeviceInfo = () => {
+    const ua = navigator.userAgent;
+    
+    let browser = "Unknown";
+    if (ua.includes("Chrome") && !ua.includes("Edg") && !ua.includes("OPR")) browser = "Chrome";
+    else if (ua.includes("Firefox")) browser = "Firefox";
+    else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari";
+    else if (ua.includes("Edg")) browser = "Edge";
+    else if (ua.includes("OPR") || ua.includes("Opera")) browser = "Opera";
+    
+    let os = "Unknown";
+    if (ua.includes("Windows")) os = "Windows";
+    else if (ua.includes("Mac OS")) os = "macOS";
+    else if (ua.includes("Linux") && !ua.includes("Android")) os = "Linux";
+    else if (ua.includes("Android")) os = "Android";
+    else if (ua.includes("iPhone") || ua.includes("iPad") || ua.includes("iPod")) os = "iOS";
+    
+    let device = "Desktop";
+    if (/(mobile|android|iphone|ipod|blackberry|windows phone)/i.test(ua)) device = "Mobile";
+    else if (/(tablet|ipad|playbook|silk)/i.test(ua)) device = "Tablet";
+    
+    return { device, browser, os };
+  };
+
+  const recordCurrentLogin = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      
+      const { device, browser, os } = getDeviceInfo();
+      
+      const lastRecorded = localStorage.getItem('last_login_recorded');
+      const now = new Date().toDateString();
+      
+      if (lastRecorded !== now) {
+        await supabase.from("user_logins").insert({
+          user_id: session.user.id,
+          login_at: new Date().toISOString(),
+          device_type: device,
+          browser: browser,
+          os: os
+        });
+        localStorage.setItem('last_login_recorded', now);
+      }
+    } catch (error) {
+      console.error("Error recording login:", error);
+    }
+  };
 
   const handleSignOut = async () => {
     setSigningOut(true);
@@ -179,34 +173,6 @@ export default function Settings() {
       });
     } finally {
       setSigningOut(false);
-    }
-  };
-
-  const handleSendResetLink = async () => {
-    setSendingResetLink(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user?.email) {
-        throw new Error("No email found");
-      }
-
-      const { error } = await supabase.auth.resetPasswordForEmail(session.user.email);
-
-      if (error) throw error;
-
-      toast({
-        title: "Reset link sent",
-        description: `Check your email at ${session.user.email} for the password reset link.`,
-      });
-    } catch (error: any) {
-      console.error("Reset link error:", error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send reset link. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setSendingResetLink(false);
     }
   };
 
@@ -373,30 +339,6 @@ export default function Settings() {
                   </p>
                 </div>
                 <Badge variant="outline">Coming Soon</Badge>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Change Password */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Key className="w-5 h-5 text-secondary" />
-                Change Password
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="bg-muted/50 p-4 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-3">
-                  We'll send a password reset link to your email address.
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={handleSendResetLink}
-                  disabled={sendingResetLink}
-                >
-                  {sendingResetLink ? "Sending..." : "Send Password Reset Link"}
-                </Button>
               </div>
             </CardContent>
           </Card>

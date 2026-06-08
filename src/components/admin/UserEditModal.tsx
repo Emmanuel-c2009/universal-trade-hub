@@ -1,4 +1,4 @@
-// src/components/admin/UserEditModal.tsx - UPDATED WITH FUNDING_BALANCE (UI UNCHANGED)
+// src/components/admin/UserEditModal.tsx - UPDATED: Funding Balance is primary
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Save, Loader2, Wallet, Plus, TrendingUp } from "lucide-react";
@@ -61,8 +61,8 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
     profile_status: user.profile_status || "unverified",
     phone: user.phone || "",
     country: user.country || "",
+    // FUNDING BALANCE is the primary balance - users see and use this
     funding_balance: user.balances?.funding_balance || user.balances?.main_balance || 0,
-    main_balance: user.balances?.main_balance || user.balances?.funding_balance || 0,
     trading_balance: user.balances?.trading_balance || 0,
     litecoin_balance: user.balances?.litecoin_balance || 0,
     bonus_balance: user.balances?.bonus_balance || 0,
@@ -125,8 +125,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
 
       if (profileError) throw profileError;
 
-      // Update balances with audit log
-      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      // Get previous balances for audit
       const previousBalances = user.balances || {
         funding_balance: 0,
         main_balance: 0,
@@ -139,17 +138,19 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
         bnb_balance: 0,
       };
 
-      // Log each balance change
+      // Get admin user for audit logging
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+
+      // Log balance changes for audit
       const balanceFields = [
         { field: 'funding_balance', prev: previousBalances.funding_balance || previousBalances.main_balance, curr: formData.funding_balance },
-        { field: 'main_balance', prev: previousBalances.main_balance || previousBalances.funding_balance, curr: formData.main_balance },
         { field: 'trading_balance', prev: previousBalances.trading_balance, curr: formData.trading_balance },
-        { field: 'litecoin_balance', prev: previousBalances.litecoin_balance, curr: formData.litecoin_balance },
         { field: 'bonus_balance', prev: previousBalances.bonus_balance, curr: formData.bonus_balance },
         { field: 'btc_balance', prev: previousBalances.btc_balance, curr: formData.btc_balance },
         { field: 'eth_balance', prev: previousBalances.eth_balance, curr: formData.eth_balance },
         { field: 'usdt_balance', prev: previousBalances.usdt_balance, curr: formData.usdt_balance },
         { field: 'bnb_balance', prev: previousBalances.bnb_balance, curr: formData.bnb_balance },
+        { field: 'litecoin_balance', prev: previousBalances.litecoin_balance, curr: formData.litecoin_balance },
       ];
 
       for (const bal of balanceFields) {
@@ -166,13 +167,13 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
         }
       }
 
-      // Update balances - updates both funding_balance and main_balance for compatibility
+      // Update balances - funding_balance is the PRIMARY balance
+      // main_balance will be auto-calculated by P&L system, so we don't update it manually
       const { error: balanceError } = await supabase
         .from('user_balances')
         .update({
-          // Main balance (funding_balance is the primary)
+          // PRIMARY: funding_balance - users see and use this
           funding_balance: formData.funding_balance,
-          main_balance: formData.funding_balance,
           trading_balance: formData.trading_balance,
           bonus_balance: formData.bonus_balance,
           challenges_balance: 0,
@@ -184,7 +185,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
           litecoin_balance: formData.litecoin_balance || 0,
           bnb_balance: formData.bnb_balance || 0,
           
-          // Original columns for compatibility
+          // Legacy compatibility columns
           balance_btc: formData.btc_balance || 0,
           balance_eth: formData.eth_balance || 0,
           balance_usdt: formData.usdt_balance || 0,
@@ -206,15 +207,28 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
           actor_user_id: adminUser.id,
           target_user_id: user.id,
           action: 'user_edit',
-          metadata: JSON.parse(JSON.stringify({
+          metadata: {
             reason: balanceReason,
-            changes: formData,
+            changes: {
+              full_name: formData.full_name,
+              profile_status: formData.profile_status,
+              funding_balance: formData.funding_balance,
+              trading_balance: formData.trading_balance,
+              crypto_balances: {
+                btc: formData.btc_balance,
+                eth: formData.eth_balance,
+                usdt: formData.usdt_balance,
+                bnb: formData.bnb_balance,
+                ltc: formData.litecoin_balance,
+              },
+            },
             previous: {
               full_name: user.full_name,
               profile_status: user.profile_status,
-              balances: previousBalances,
+              funding_balance: previousBalances.funding_balance || previousBalances.main_balance,
+              trading_balance: previousBalances.trading_balance,
             },
-          })),
+          },
         }]);
       }
 
@@ -316,7 +330,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
               <TabsTrigger value="crypto">Crypto Wallets</TabsTrigger>
             </TabsList>
 
-            {/* Profile Tab - UI UNCHANGED */}
+            {/* Profile Tab */}
             <TabsContent value="profile" className="space-y-4">
               <div>
                 <Label>Email (Read Only)</Label>
@@ -369,22 +383,29 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
               </div>
             </TabsContent>
 
-            {/* Fiat Balances Tab - UI UNCHANGED, but uses funding_balance */}
+            {/* Fiat Balances Tab - FUNDING BALANCE is primary */}
             <TabsContent value="balances" className="space-y-4">
+              <div className="bg-gold/10 border border-gold/30 rounded-lg p-3 mb-2">
+                <p className="text-sm text-gold">💰 Funding Balance is the main balance users see and use for trading</p>
+              </div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label>Main Balance (€)</Label>
+                  <Label className="text-gold">Funding Balance (€)</Label>
                   <Input
                     type="number"
+                    step="0.01"
                     value={formData.funding_balance}
-                    onChange={(e) => setFormData({ ...formData, funding_balance: parseFloat(e.target.value) || 0, main_balance: parseFloat(e.target.value) || 0 })}
-                    className="mt-1"
+                    onChange={(e) => setFormData({ ...formData, funding_balance: parseFloat(e.target.value) || 0 })}
+                    className="mt-1 border-gold/30 focus:border-gold"
                   />
+                  <p className="text-xs text-muted-foreground mt-1">Primary balance - users trade with this</p>
                 </div>
                 <div>
                   <Label>Trading Balance (€)</Label>
                   <Input
                     type="number"
+                    step="0.01"
                     value={formData.trading_balance}
                     onChange={(e) => setFormData({ ...formData, trading_balance: parseFloat(e.target.value) || 0 })}
                     className="mt-1"
@@ -394,6 +415,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
                   <Label>Bonus Balance (€)</Label>
                   <Input
                     type="number"
+                    step="0.01"
                     value={formData.bonus_balance}
                     onChange={(e) => setFormData({ ...formData, bonus_balance: parseFloat(e.target.value) || 0 })}
                     className="mt-1"
@@ -403,6 +425,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
                   <Label>Litecoin Balance (€)</Label>
                   <Input
                     type="number"
+                    step="0.01"
                     value={formData.litecoin_balance}
                     onChange={(e) => setFormData({ ...formData, litecoin_balance: parseFloat(e.target.value) || 0 })}
                     className="mt-1"
@@ -460,7 +483,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
               </div>
             </TabsContent>
 
-            {/* Crypto Wallets Tab - UI UNCHANGED */}
+            {/* Crypto Wallets Tab */}
             <TabsContent value="crypto" className="space-y-4">
               {loadingWallets ? (
                 <div className="flex justify-center py-8">
@@ -529,7 +552,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
             </TabsContent>
           </Tabs>
 
-          {/* Reason Field (Required) - UI UNCHANGED */}
+          {/* Reason Field (Required) */}
           <div className="mt-6 pt-4 border-t">
             <Label>Reason for Changes *</Label>
             <Textarea
@@ -537,6 +560,7 @@ export const UserEditModal = ({ isOpen, onClose, user, onSave }: UserEditModalPr
               onChange={(e) => setBalanceReason(e.target.value)}
               placeholder="Explain why you're making these changes (required for audit)"
               className="mt-1"
+              rows={3}
             />
           </div>
 

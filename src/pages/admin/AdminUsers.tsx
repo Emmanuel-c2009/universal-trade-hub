@@ -65,7 +65,7 @@ interface UserBalance {
   eth_balance: number;
   usdt_balance: number;
   bnb_balance: number;
-  funding_balance: number; // Added to fix TypeScript error
+  funding_balance: number;
   is_test_account: boolean;
 }
 
@@ -117,25 +117,21 @@ export const AdminUsers = () => {
 
   const fetchPlatformStats = useCallback(async () => {
     try {
-      // Total users
       const { count: totalUsers } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
 
-      // Verified users
       const { count: verifiedUsers } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .eq('profile_status', 'verified');
 
-      // New this week
       const weekAgo = subDays(new Date(), 7).toISOString();
       const { count: newThisWeek } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .gte('created_at', weekAgo);
 
-      // Active today (users with recent transactions or trades)
       const todayStart = new Date().toISOString().split('T')[0];
       const { data: activeTrades } = await supabase
         .from('platform_trades')
@@ -158,34 +154,38 @@ export const AdminUsers = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      // Get total count for pagination
-      const { count } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact', head: true });
-
-      setTotalCount(count || 0);
-
-      // Fetch paginated profiles
       const from = (currentPage - 1) * USERS_PER_PAGE;
       const to = from + USERS_PER_PAGE - 1;
 
-      const { data: profiles, error } = await supabase
+      let query = supabase
         .from('profiles')
-        .select('*')
+        .select('id, email, full_name, profile_status, created_at, phone, country, city, address', { count: 'exact' });
+
+      if (statusFilter !== "all") {
+        query = query.eq('profile_status', statusFilter);
+      }
+
+      const { data: profiles, error, count } = await query
         .order('created_at', { ascending: false })
         .range(from, to);
 
       if (error) throw error;
 
-      // Fetch all balances in one query
-      const userIds = (profiles || []).map(p => p.id);
+      setTotalCount(count || 0);
+
+      if (!profiles || profiles.length === 0) {
+        setUsers([]);
+        setLoading(false);
+        return;
+      }
+
+      const userIds = profiles.map(p => p.id);
       const { data: balances } = await supabase
         .from('user_balances')
         .select('*')
         .in('user_id', userIds);
 
-      // Map balances to users
-      const usersWithBalances = (profiles || []).map(profile => ({
+      const usersWithBalances = profiles.map(profile => ({
         ...profile,
         balances: balances?.find(b => b.user_id === profile.id) || null,
       }));
@@ -195,13 +195,13 @@ export const AdminUsers = () => {
       console.error('Error fetching users:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch users. Make sure you have admin access.",
+        description: "Failed to fetch users",
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  }, [currentPage, toast]);
+  }, [currentPage, statusFilter, toast]);
 
   useEffect(() => {
     fetchUsers();
@@ -230,9 +230,7 @@ export const AdminUsers = () => {
       user.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.full_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.id.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || user.profile_status === statusFilter;
-    return matchesSearch && matchesStatus;
+    return matchesSearch;
   });
 
   const totalPages = Math.ceil(totalCount / USERS_PER_PAGE);

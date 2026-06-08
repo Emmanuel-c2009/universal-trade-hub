@@ -16,42 +16,23 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [isValidToken, setIsValidToken] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is authenticated via reset token
+    // Let Supabase handle the token automatically
+    // The token is already verified when the user clicks the link
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setUserId(session.user.id);
-        setUserEmail(session.user.email);
-      } else {
-        // No valid session, redirect to auth
-        toast.error("Invalid or expired reset link");
-        navigate("/auth");
+      
+      if (!session) {
+        setIsValidToken(false);
+        toast.error("Invalid or expired reset link. Please request a new one.");
       }
     };
+    
     checkSession();
-  }, [navigate]);
-
-  const sendMigrationNotification = async (email: string, userName: string, fundingBalance: number) => {
-    try {
-      await supabase.functions.invoke("send-migration-notification", {
-        body: {
-          type: "migration_complete",
-          email: email,
-          user_name: userName,
-          funding_balance: fundingBalance.toFixed(2),
-          verification_link: `${window.location.origin}/verification`,
-        },
-      });
-      console.log("Migration notification sent to:", email);
-    } catch (error) {
-      console.error("Migration notification error:", error);
-    }
-  };
+  }, []);
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,67 +56,41 @@ export default function ResetPassword() {
       setSuccess(true);
       toast.success("Password updated successfully!");
       
-      // Check if user needs verification and is a migrated user
-      if (userId) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("profile_status, full_name")
-          .eq("id", userId)
-          .single();
-        
-        // Check if user is migrated (has funding_balance)
-        const { data: balance } = await supabase
-          .from("user_balances")
-          .select("funding_balance")
-          .eq("user_id", userId)
-          .single();
-        
-        const isMigrated = balance?.funding_balance !== null && balance?.funding_balance !== undefined;
-        
-        // Send migration completion notification for migrated users
-        if (isMigrated && profile?.profile_status !== "verified") {
-          const fundingBalance = balance?.funding_balance || 0;
-          
-          await sendMigrationNotification(
-            userEmail || "",
-            profile?.full_name || "Valued Customer",
-            fundingBalance
-          );
-          
-          // Create in-app notification
-          await supabase.from("user_notifications").insert({
-            user_id: userId,
-            title: "🎉 Welcome to the New Platform!",
-            message: `Your account has been successfully migrated. Your balance is €${fundingBalance.toFixed(2)}. Please complete verification to start trading.`,
-            notification_type: "success",
-            is_read: false,
-            link: "/verification",
-          });
-        }
-        
-        // Redirect based on verification status
-        if (profile?.profile_status !== "verified") {
-          setTimeout(() => {
-            navigate("/verification");
-          }, 2000);
-        } else {
-          setTimeout(() => {
-            navigate("/dashboard");
-          }, 2000);
-        }
-      } else {
-        setTimeout(() => {
-          navigate("/dashboard");
-        }, 2000);
-      }
+      // Sign out after password change
+      await supabase.auth.signOut();
+      
+      setTimeout(() => {
+        navigate("/auth");
+      }, 3000);
       
     } catch (error: any) {
+      console.error("Password update error:", error);
       toast.error(error.message || "Failed to update password");
-      setSuccess(false);
     } finally {
       setLoading(false);
     }
   };
+
+  if (!isValidToken) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-background via-primary/20 to-background py-12 px-4">
+        <Card className="max-w-md w-full p-8 text-center">
+          <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold mb-2">Invalid Reset Link</h1>
+          <p className="text-muted-foreground mb-6">
+            This password reset link is invalid or has expired. Please request a new one from the login page.
+          </p>
+          <Link to="/auth">
+            <Button variant="hero" className="w-full">Back to Login</Button>
+          </Link>
+        </Card>
+      </div>
+    );
+  }
 
   if (success) {
     return (
@@ -144,11 +99,11 @@ export default function ResetPassword() {
           <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold mb-2">Password Updated!</h1>
           <p className="text-muted-foreground mb-6">
-            Your password has been successfully changed. Redirecting you...
+            Your password has been successfully changed. Redirecting to login...
           </p>
-          <Button onClick={() => navigate("/dashboard")} variant="hero" className="w-full">
-            Go to Dashboard
-          </Button>
+          <Link to="/auth">
+            <Button variant="hero" className="w-full">Go to Login</Button>
+          </Link>
         </Card>
       </div>
     );
