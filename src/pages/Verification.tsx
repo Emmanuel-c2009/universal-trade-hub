@@ -43,7 +43,6 @@ const COUNTRIES = [
   "Vietnam", "Yemen", "Zambia", "Zimbabwe"
 ];
 
-// ============ COMPLETE NATIONALITY LIST (A-Z) ============
 const NATIONALITIES = [
   "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan", "Argentine", "Armenian",
   "Australian", "Austrian", "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian",
@@ -72,7 +71,6 @@ const NATIONALITIES = [
   "Uzbek", "Vanuatuan", "Vatican", "Venezuelan", "Vietnamese", "Yemeni", "Zambian", "Zimbabwean"
 ];
 
-// ============ AUTOCOMPLETE COMPONENT ============
 interface AutocompleteSelectProps {
   label: string;
   options: string[];
@@ -100,7 +98,7 @@ function AutocompleteSelect({ label, options, value, onChange, placeholder, requ
       const filtered = options.filter(option =>
         option.toLowerCase().includes(term.toLowerCase())
       );
-      setFilteredOptions(filtered.slice(0, 15)); // Show top 15 matches
+      setFilteredOptions(filtered.slice(0, 15));
       setShowSuggestions(true);
     } else {
       setFilteredOptions(options.slice(0, 15));
@@ -128,7 +126,6 @@ function AutocompleteSelect({ label, options, value, onChange, placeholder, requ
             setShowSuggestions(true);
           }}
           onBlur={() => {
-            // Delay to allow click on suggestion
             setTimeout(() => setShowSuggestions(false), 200);
           }}
           placeholder={placeholder}
@@ -148,11 +145,6 @@ function AutocompleteSelect({ label, options, value, onChange, placeholder, requ
               {option}
             </div>
           ))}
-          {filteredOptions.length === 0 && searchTerm && (
-            <div className="px-4 py-2 text-sm text-muted-foreground">
-              No matching options. You can type custom text.
-            </div>
-          )}
         </div>
       )}
     </div>
@@ -275,7 +267,7 @@ export default function Verification() {
   const needsBack = TWO_SIDED_IDS.includes(formData.idType);
   const isIdComplete = () => formData.idType && formData.idDocumentFront && (!needsBack || formData.idDocumentBack);
 
-  const sendVerificationNotification = async (type: string, email: string, fullName: string, rejectionReason?: string) => {
+  const sendVerificationNotification = async (type: string, email: string, fullName: string, rejectionReason?: string, documentUrls?: any, telegramUsername?: string) => {
     try {
       const body: any = {
         email: email,
@@ -284,6 +276,12 @@ export default function Verification() {
       };
       if (rejectionReason) {
         body.rejectionReason = rejectionReason;
+      }
+      if (documentUrls) {
+        body.documentUrls = documentUrls;
+      }
+      if (telegramUsername) {
+        body.telegramUsername = telegramUsername;
       }
       await supabase.functions.invoke("send-verification-email", { body });
     } catch (error) {
@@ -333,7 +331,20 @@ export default function Verification() {
       }
       await supabase.from("profiles").update(profileUpdate).eq("id", user.id);
 
-      await sendVerificationNotification("submission", user.email, profile?.full_name || user.email);
+      // Send notification with document URLs and telegram username
+      await sendVerificationNotification(
+        "submission", 
+        user.email, 
+        profile?.full_name || user.email,
+        undefined,
+        {
+          id_front: getFullImageUrl(idFrontPath),
+          id_back: idBackPath ? getFullImageUrl(idBackPath) : null,
+          proof_of_address: getFullImageUrl(utilityPath),
+          selfie: getFullImageUrl(selfiePath)
+        },
+        personal.telegramUsername
+      );
 
       toast({ title: "✅ Application submitted", description: "Under review. Redirecting…" });
       setTimeout(() => navigate("/dashboard"), 2000);
