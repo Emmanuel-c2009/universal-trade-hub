@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - COMPLETE WITH AI ERROR HANDLER TEST BUTTON
+// src/pages/Dashboard.tsx - COMPLETE WITH UPDATED AI ERROR HANDLER TEST BUTTON
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LiveChatWidget } from "@/components/LiveChatWidget";
@@ -19,6 +19,7 @@ const Dashboard = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [showVerificationBanner, setShowVerificationBanner] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
   const navigate = useNavigate();
 
   // Use unified balance hook
@@ -77,18 +78,32 @@ const Dashboard = () => {
 
   // Test AI Error Handler function
   const testAIErrorHandler = async () => {
+    if (isTesting) return;
+    
+    setIsTesting(true);
     try {
       console.log("🧪 Testing AI Error Handler...");
+      
+      // Create a detailed test error message
+      const testErrorMessage = `User profile not found for user ID: ${session?.user?.id || "unknown"}`;
+      
+      console.log("Sending error to AI:", testErrorMessage);
+      
       const { data, error } = await supabase.functions.invoke('analyze-error', {
         body: {
-          error_message: "Test error from Dashboard - User profile verification failed",
-          error_stack: "Manual test at Dashboard.tsx line 98",
-          error_type: "TestError",
+          error_message: testErrorMessage,
+          error_stack: "Error at Dashboard.tsx: getUserProfile failed - Profile record missing in database table 'profiles'",
+          error_type: "ProfileNotFoundError",
           user_email: session?.user?.email || "test@example.com",
-          user_id: session?.user?.id,
+          user_id: session?.user?.id || "test-user-123",
           page_url: window.location.pathname,
           component: "Dashboard",
-          action: "test_ai_handler"
+          action: "test_ai_handler",
+          additional_data: { 
+            test: true, 
+            timestamp: new Date().toISOString(),
+            profile_exists: !!profile
+          }
         }
       });
       
@@ -102,6 +117,8 @@ const Dashboard = () => {
     } catch (err) {
       console.error("Test failed:", err);
       alert("❌ Test failed: " + (err instanceof Error ? err.message : "Unknown error"));
+    } finally {
+      setIsTesting(false);
     }
   };
 
@@ -150,16 +167,19 @@ const Dashboard = () => {
           </Card>
         )}
 
-        {/* Test AI Error Handler Button - Remove after testing */}
+        {/* Test AI Error Handler Button - Updated with proper data */}
         <div className="mb-6">
           <button 
             onClick={testAIErrorHandler}
-            className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+            disabled={isTesting}
+            className={`w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium transition-all shadow-lg ${
+              isTesting ? 'opacity-50 cursor-not-allowed' : 'hover:from-blue-700 hover:to-purple-700'
+            }`}
           >
-            🧪 Test AI Error Handler
+            {isTesting ? '⏳ Sending to AI...' : '🧪 Test AI Error Handler'}
           </button>
           <p className="text-xs text-center text-muted-foreground mt-2">
-            Click to test the AI error analysis system (removable after testing)
+            Click to test the AI error analysis system - sends real error data to Gemini AI
           </p>
         </div>
 
