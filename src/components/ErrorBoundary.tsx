@@ -1,5 +1,5 @@
 import { Component, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { sendErrorToAI, getUserFriendlyError } from "@/lib/aiErrorHandler";
 
 interface Props {
   children: ReactNode;
@@ -11,58 +11,6 @@ interface State {
   errorMessage: string;
 }
 
-async function sendErrorToAdmin(error: Error, componentStack: string) {
-  try {
-    const { data: { session } } = await supabase.auth.getSession();
-    const userId = session?.user?.id;
-    const userEmail = session?.user?.email;
-    
-    const message = `🚨 <b>ERROR ALERT</b>\n\n` +
-      `<b>Type:</b> ${error.name}\n` +
-      `<b>Message:</b> ${error.message}\n` +
-      `<b>User ID:</b> ${userId || 'Not logged in'}\n` +
-      `<b>User Email:</b> ${userEmail || 'Not logged in'}\n` +
-      `<b>Time:</b> ${new Date().toLocaleString()}\n\n` +
-      `<b>Stack:</b> ${error.stack?.substring(0, 500) || 'No stack trace'}\n\n` +
-      `<b>Component Stack:</b> ${componentStack.substring(0, 500)}`;
-    
-    // Send to Telegram
-    await supabase.functions.invoke('send-telegram-error', {
-      body: { message }
-    }).catch(console.error);
-    
-    // Log to database - fixed: added await and proper error handling
-    const { error: dbError } = await supabase.from('error_logs').insert({
-      error_type: error.name,
-      error_message: error.message,
-      error_details: { stack: error.stack, componentStack },
-      user_id: userId,
-      user_email: userEmail,
-      page_url: window.location.pathname
-    });
-    
-    if (dbError) {
-      console.error('Failed to log error to database:', dbError);
-    }
-    
-  } catch (err) {
-    console.error('Failed to send error:', err);
-  }
-}
-
-function getUserFriendlyMessage(error: Error): string {
-  const message = error.message;
-  
-  if (message.includes('23503')) return 'Your request could not be completed. Our team has been notified.';
-  if (message.includes('23505')) return 'This information already exists. Please contact support.';
-  if (message.includes('42P01')) return 'A system error occurred. Our team has been notified.';
-  if (message.includes('storage/file-too-large')) return 'File is too large. Maximum size is 5MB.';
-  if (message.includes('JWT')) return 'Your session expired. Please refresh the page and log in again.';
-  if (message.includes('network')) return 'Network error. Please check your internet connection.';
-  
-  return 'Something went wrong. Our team has been notified.';
-}
-
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
@@ -70,12 +18,21 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, errorMessage: getUserFriendlyMessage(error) };
+    return { 
+      hasError: true, 
+      errorMessage: getUserFriendlyError(error) 
+    };
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Error caught by boundary:', error, errorInfo);
-    sendErrorToAdmin(error, errorInfo.componentStack);
+  async componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error('❌ Error caught by boundary:', error, errorInfo);
+    
+    // Send to AI for analysis (this will trigger Telegram with Yes/No buttons)
+    await sendErrorToAI(error, {
+      component: 'ErrorBoundary',
+      action: 'uncaught_error',
+      additionalData: { componentStack: errorInfo.componentStack }
+    });
   }
 
   render() {
@@ -87,8 +44,8 @@ export class ErrorBoundary extends Component<Props, State> {
       return (
         <div className="min-h-screen flex items-center justify-center bg-background p-4">
           <div className="text-center max-w-md">
-            <div className="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-yellow-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
               </svg>
             </div>
