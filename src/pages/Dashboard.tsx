@@ -1,4 +1,4 @@
-// src/pages/Dashboard.tsx - COMPLETE FIXED VERSION
+// src/pages/Dashboard.tsx - COMPLETE WITH AI ERROR HANDLER TEST BUTTON
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LiveChatWidget } from "@/components/LiveChatWidget";
@@ -6,7 +6,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
-// ✅ CHANGE: Default import (no curly braces)
 import UnifiedBalanceCards from "@/components/dashboard/UnifiedBalanceCards";
 import { BottomNav } from "@/components/dashboard/BottomNav";
 import { Card } from "@/components/ui/card";
@@ -76,6 +75,36 @@ const Dashboard = () => {
 
   const userName = profile?.full_name || session?.user?.email?.split("@")[0] || "Trader";
 
+  // Test AI Error Handler function
+  const testAIErrorHandler = async () => {
+    try {
+      console.log("🧪 Testing AI Error Handler...");
+      const { data, error } = await supabase.functions.invoke('analyze-error', {
+        body: {
+          error_message: "Test error from Dashboard - User profile verification failed",
+          error_stack: "Manual test at Dashboard.tsx line 98",
+          error_type: "TestError",
+          user_email: session?.user?.email || "test@example.com",
+          user_id: session?.user?.id,
+          page_url: window.location.pathname,
+          component: "Dashboard",
+          action: "test_ai_handler"
+        }
+      });
+      
+      if (error) {
+        console.error("Invoke error:", error);
+        alert("❌ Error: " + error.message);
+      } else {
+        console.log("✅ Success! Check Telegram for AI analysis!", data);
+        alert("✅ AI analysis sent to Telegram! Check your bot messages.");
+      }
+    } catch (err) {
+      console.error("Test failed:", err);
+      alert("❌ Test failed: " + (err instanceof Error ? err.message : "Unknown error"));
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -120,6 +149,19 @@ const Dashboard = () => {
             </div>
           </Card>
         )}
+
+        {/* Test AI Error Handler Button - Remove after testing */}
+        <div className="mb-6">
+          <button 
+            onClick={testAIErrorHandler}
+            className="w-full px-4 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
+          >
+            🧪 Test AI Error Handler
+          </button>
+          <p className="text-xs text-center text-muted-foreground mt-2">
+            Click to test the AI error analysis system (removable after testing)
+          </p>
+        </div>
 
         <div className="grid gap-6 mb-6">
           <UnifiedBalanceCards
