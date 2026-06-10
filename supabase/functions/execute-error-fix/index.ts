@@ -1,6 +1,12 @@
 ﻿import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, apikey",
+};
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
@@ -39,19 +45,35 @@ async function executeFix(fixType: string, fixDetails: any, userId: string) {
 }
 
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+  
   try {
     const { action, fix_data, user_id } = await req.json();
     const fixDetails = JSON.parse(atob(fix_data));
     if (action === "approve") {
       const result = await executeFix(fixDetails.fix_type, fixDetails.fix_details, user_id);
       await sendTelegramMessage(result.success ? `✅ FIX APPLIED: ${result.message}` : `❌ FIX FAILED: ${result.message}`);
-      return new Response(JSON.stringify({ success: result.success, message: result.message }), { status: 200 });
+      return new Response(JSON.stringify({ success: result.success, message: result.message }), { 
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     } else if (action === "reject") {
       await sendTelegramMessage(`🚫 FIX REJECTED for ${fixDetails.error_message}`);
-      return new Response(JSON.stringify({ success: true, message: "Fix rejected" }), { status: 200 });
+      return new Response(JSON.stringify({ success: true, message: "Fix rejected" }), { 
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
     }
-    return new Response(JSON.stringify({ error: "Invalid action" }), { status: 400 });
+    return new Response(JSON.stringify({ error: "Invalid action" }), { 
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: error.message }), { 
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
   }
 });
