@@ -93,7 +93,11 @@ interface FeeConfig {
   card_max_limit: number | null;
   cash_mailing_min_limit: number | null;
   cash_mailing_max_limit: number | null;
-  minimum_withdrawal: number | null;
+  // New global fields
+  global_min_enabled: boolean;
+  global_min_amount: number | null;
+  global_max_enabled: boolean;
+  global_max_amount: number | null;
   custom_message: string | null;
 }
 
@@ -124,7 +128,7 @@ export const AdminBlockchain = () => {
     qr_code_url: "",
   });
 
-  // Fee form state
+  // Fee form state with new global toggles
   const [feeForm, setFeeForm] = useState({
     fee_enabled: true,
     crypto_enabled: true,
@@ -135,15 +139,19 @@ export const AdminBlockchain = () => {
     bank_fee_percent: 8,
     card_fee_percent: 8,
     cash_mailing_fee_percent: 15,
-    crypto_min_limit: 100,
+    crypto_min_limit: 28000,
     crypto_max_limit: 50000,
-    bank_min_limit: 100,
+    bank_min_limit: 30000,
     bank_max_limit: 50000,
-    card_min_limit: 100,
-    card_max_limit: 10000,
+    card_min_limit: 25000,
+    card_max_limit: 30000,
     cash_mailing_min_limit: 20000,
     cash_mailing_max_limit: 100000,
-    minimum_withdrawal: 100,
+    // New global fields
+    global_min_enabled: true,
+    global_min_amount: 28000,
+    global_max_enabled: true,
+    global_max_amount: 100000,
   });
 
   useEffect(() => {
@@ -161,8 +169,9 @@ export const AdminBlockchain = () => {
         supabase
           .from("withdrawal_fee_config")
           .select("*")
-          .is("user_id", null)
-          .single(),
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
         supabase
           .from("blockchain_shuffle_settings")
           .select("*")
@@ -170,8 +179,10 @@ export const AdminBlockchain = () => {
       ]);
 
       if (addressesRes.data) setAddresses(addressesRes.data as BlockchainAddress[]);
+      
       if (feeRes.data) {
         const data = feeRes.data as any;
+        console.log("Loaded fee config:", data);
         setFeeConfig(data as FeeConfig);
         setFeeForm({
           fee_enabled: data.fee_enabled,
@@ -183,16 +194,21 @@ export const AdminBlockchain = () => {
           bank_fee_percent: data.bank_fee_percent || 8,
           card_fee_percent: data.card_fee_percent || 8,
           cash_mailing_fee_percent: data.cash_mailing_fee_percent || 15,
-          crypto_min_limit: data.crypto_min_limit || 100,
+          crypto_min_limit: data.crypto_min_limit || 28000,
           crypto_max_limit: data.crypto_max_limit || 50000,
-          bank_min_limit: data.bank_min_limit || 100,
+          bank_min_limit: data.bank_min_limit || 30000,
           bank_max_limit: data.bank_max_limit || 50000,
-          card_min_limit: data.card_min_limit || 100,
-          card_max_limit: data.card_max_limit || 10000,
+          card_min_limit: data.card_min_limit || 25000,
+          card_max_limit: data.card_max_limit || 30000,
           cash_mailing_min_limit: data.cash_mailing_min_limit || 20000,
           cash_mailing_max_limit: data.cash_mailing_max_limit || 100000,
-          minimum_withdrawal: data.minimum_withdrawal || 100,
+          global_min_enabled: data.global_min_enabled !== undefined ? data.global_min_enabled : true,
+          global_min_amount: data.global_min_amount || 28000,
+          global_max_enabled: data.global_max_enabled !== undefined ? data.global_max_enabled : true,
+          global_max_amount: data.global_max_amount || 100000,
         });
+      } else {
+        console.log("No fee config found, using defaults");
       }
       
       if (shuffleRes.data) {
@@ -209,7 +225,6 @@ export const AdminBlockchain = () => {
     try {
       let qrCodeUrl = addressForm.qr_code_url;
       
-      // Upload QR code image if a file was selected
       if (qrCodeFile) {
         const fileName = `gateway_qr/${Date.now()}-${qrCodeFile.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -265,22 +280,17 @@ export const AdminBlockchain = () => {
 
   const handleSaveShuffleSettings = async () => {
     try {
-      // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
-      // First, check if a row exists
       const { data: existing, error: checkError } = await supabase
         .from("blockchain_shuffle_settings")
         .select("id")
         .maybeSingle();
       
       console.log("Existing row:", existing);
-      console.log("Check error:", checkError);
       
       let result;
       if (existing && existing.id) {
-        // Update existing row
-        console.log("Updating existing row with id:", existing.id);
         result = await supabase
           .from("blockchain_shuffle_settings")
           .update({
@@ -292,8 +302,6 @@ export const AdminBlockchain = () => {
           })
           .eq("id", existing.id);
       } else {
-        // Insert new row
-        console.log("Inserting new row");
         result = await supabase
           .from("blockchain_shuffle_settings")
           .insert({
@@ -315,11 +323,21 @@ export const AdminBlockchain = () => {
     }
   };
 
+  // ✅ FIXED: Updated to include global toggles
   const handleSaveFees = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       
-      if (feeConfig) {
+      const { data: existingRow, error: checkError } = await supabase
+        .from("withdrawal_fee_config")
+        .select("id")
+        .order("updated_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      console.log("Existing row found:", existingRow);
+      
+      if (existingRow && existingRow.id) {
         const { error } = await supabase
           .from("withdrawal_fee_config")
           .update({
@@ -340,40 +358,55 @@ export const AdminBlockchain = () => {
             card_max_limit: feeForm.card_max_limit,
             cash_mailing_min_limit: feeForm.cash_mailing_min_limit,
             cash_mailing_max_limit: feeForm.cash_mailing_max_limit,
-            minimum_withdrawal: feeForm.minimum_withdrawal,
+            global_min_enabled: feeForm.global_min_enabled,
+            global_min_amount: feeForm.global_min_amount,
+            global_max_enabled: feeForm.global_max_enabled,
+            global_max_amount: feeForm.global_max_amount,
+            updated_at: new Date().toISOString(),
           })
-          .eq("id", feeConfig.id);
-
+          .eq("id", existingRow.id);
+        
         if (error) throw error;
+        toast({ title: "✅ Fee configuration saved successfully" });
+        
       } else {
-        const { error } = await supabase.from("withdrawal_fee_config").insert({
-          fee_enabled: feeForm.fee_enabled,
-          crypto_enabled: feeForm.crypto_enabled,
-          bank_enabled: feeForm.bank_enabled,
-          card_enabled: feeForm.card_enabled,
-          cash_mailing_enabled: feeForm.cash_mailing_enabled,
-          crypto_fee_percent: feeForm.crypto_fee_percent,
-          bank_fee_percent: feeForm.bank_fee_percent,
-          card_fee_percent: feeForm.card_fee_percent,
-          cash_mailing_fee_percent: feeForm.cash_mailing_fee_percent,
-          crypto_min_limit: feeForm.crypto_min_limit,
-          crypto_max_limit: feeForm.crypto_max_limit,
-          bank_min_limit: feeForm.bank_min_limit,
-          bank_max_limit: feeForm.bank_max_limit,
-          card_min_limit: feeForm.card_min_limit,
-          card_max_limit: feeForm.card_max_limit,
-          cash_mailing_min_limit: feeForm.cash_mailing_min_limit,
-          cash_mailing_max_limit: feeForm.cash_mailing_max_limit,
-          minimum_withdrawal: feeForm.minimum_withdrawal,
-          created_by: user?.id,
-        });
-
+        const { error } = await supabase
+          .from("withdrawal_fee_config")
+          .insert({
+            fee_enabled: feeForm.fee_enabled,
+            crypto_enabled: feeForm.crypto_enabled,
+            bank_enabled: feeForm.bank_enabled,
+            card_enabled: feeForm.card_enabled,
+            cash_mailing_enabled: feeForm.cash_mailing_enabled,
+            crypto_fee_percent: feeForm.crypto_fee_percent,
+            bank_fee_percent: feeForm.bank_fee_percent,
+            card_fee_percent: feeForm.card_fee_percent,
+            cash_mailing_fee_percent: feeForm.cash_mailing_fee_percent,
+            crypto_min_limit: feeForm.crypto_min_limit,
+            crypto_max_limit: feeForm.crypto_max_limit,
+            bank_min_limit: feeForm.bank_min_limit,
+            bank_max_limit: feeForm.bank_max_limit,
+            card_min_limit: feeForm.card_min_limit,
+            card_max_limit: feeForm.card_max_limit,
+            cash_mailing_min_limit: feeForm.cash_mailing_min_limit,
+            cash_mailing_max_limit: feeForm.cash_mailing_max_limit,
+            global_min_enabled: feeForm.global_min_enabled,
+            global_min_amount: feeForm.global_min_amount,
+            global_max_enabled: feeForm.global_max_enabled,
+            global_max_amount: feeForm.global_max_amount,
+            created_by: user?.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        
         if (error) throw error;
+        toast({ title: "✅ Fee configuration created successfully" });
       }
-
-      toast({ title: "Fee configuration saved successfully" });
-      fetchData();
+      
+      await fetchData();
+      
     } catch (error: any) {
+      console.error("Save error:", error);
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
   };
@@ -731,7 +764,6 @@ export const AdminBlockchain = () => {
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Master Enable/Disable */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="font-medium">🔄 Enable Auto-Shuffle</p>
@@ -804,7 +836,6 @@ export const AdminBlockchain = () => {
                 </div>
               </div>
 
-              {/* How it works info */}
               <div className="p-4 bg-muted/30 rounded-lg">
                 <h3 className="font-medium mb-2 flex items-center gap-2">
                   <RefreshCw className="w-4 h-4" />
@@ -840,7 +871,6 @@ export const AdminBlockchain = () => {
               </p>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Master Enable/Disable All */}
               <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
                 <div>
                   <p className="font-medium">🌐 Master Enable Blockchain Network Fees</p>
@@ -852,6 +882,57 @@ export const AdminBlockchain = () => {
                   checked={feeForm.fee_enabled}
                   onCheckedChange={(checked) => setFeeForm({ ...feeForm, fee_enabled: checked })}
                 />
+              </div>
+
+              {/* NEW: Global Limits Section */}
+              <div className="space-y-4 border-t border-border pt-4">
+                <h3 className="font-medium text-md">🌍 Global Limits (Applies to ALL withdrawal methods)</h3>
+                
+                {/* Global Minimum with Toggle */}
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <Label>Global Minimum Withdrawal</Label>
+                    <p className="text-xs text-muted-foreground">Overrides all method-specific minimums when enabled</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={feeForm.global_min_enabled}
+                      onCheckedChange={(checked) => setFeeForm({ ...feeForm, global_min_enabled: checked })}
+                    />
+                    {feeForm.global_min_enabled && (
+                      <Input
+                        type="number"
+                        value={feeForm.global_min_amount}
+                        onChange={(e) => setFeeForm({ ...feeForm, global_min_amount: parseFloat(e.target.value) })}
+                        className="w-32"
+                        placeholder="Amount"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* Global Maximum with Toggle */}
+                <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                  <div>
+                    <Label>Global Maximum Withdrawal</Label>
+                    <p className="text-xs text-muted-foreground">Maximum allowed per single withdrawal when enabled</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Switch
+                      checked={feeForm.global_max_enabled}
+                      onCheckedChange={(checked) => setFeeForm({ ...feeForm, global_max_enabled: checked })}
+                    />
+                    {feeForm.global_max_enabled && (
+                      <Input
+                        type="number"
+                        value={feeForm.global_max_amount}
+                        onChange={(e) => setFeeForm({ ...feeForm, global_max_amount: parseFloat(e.target.value) })}
+                        className="w-32"
+                        placeholder="Amount"
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="border-t border-border pt-4">
@@ -1070,25 +1151,6 @@ export const AdminBlockchain = () => {
                     </p>
                   </div>
                 </div>
-              </div>
-
-              {/* Global Minimum Withdrawal */}
-              <div className="space-y-2 border-t border-border pt-4">
-                <Label className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4" />
-                  Global Minimum Withdrawal Amount (€)
-                </Label>
-                <Input
-                  type="number"
-                  value={feeForm.minimum_withdrawal}
-                  onChange={(e) =>
-                    setFeeForm({ ...feeForm, minimum_withdrawal: parseFloat(e.target.value) })
-                  }
-                  className="max-w-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Users cannot withdraw less than this amount (overrides method-specific min limits)
-                </p>
               </div>
 
               <Button onClick={handleSaveFees} className="w-full md:w-auto">

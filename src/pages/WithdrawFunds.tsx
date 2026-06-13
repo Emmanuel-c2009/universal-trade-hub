@@ -1,4 +1,4 @@
-// src/pages/WithdrawFunds.tsx - COMPLETE WITH BLOCKCHAIN SETTINGS CHECK
+// src/pages/WithdrawFunds.tsx - COMPLETE WITH GLOBAL LIMITS FIX
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -17,7 +17,7 @@ import { Building2, Bitcoin, CreditCard, Truck, Wallet, Loader2, AlertTriangle, 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBanks } from "@/hooks/useBanks";
 
-// Full countries list (unchanged - keeping your existing)
+// Full countries list (keep your existing countries array here)
 const countries = [
   { code: "AF", name: "Afghanistan", currency: "AFN", currencySymbol: "؋", exchangeRate: 0.012 },
   { code: "AL", name: "Albania", currency: "ALL", currencySymbol: "L", exchangeRate: 0.0095 },
@@ -338,21 +338,23 @@ export default function WithdrawFunds() {
     fetchFeeConfig();
   }, []);
 
-  // ✅ FIXED: Always get the most recent configuration
+  // Fetch the most recent configuration
   const fetchFeeConfig = async () => {
     const { data, error } = await supabase
       .from("withdrawal_fee_config")
       .select("*")
       .order("updated_at", { ascending: false })
       .limit(1)
-      .single();
+      .maybeSingle();
     
     if (error) {
       console.error("Error fetching fee config:", error);
       return;
     }
     
-    console.log("Loaded fee config - Min Withdrawal:", data?.minimum_withdrawal);
+    console.log("Loaded fee config:", data);
+    console.log("Global min enabled:", data?.global_min_enabled, "type:", typeof data?.global_min_enabled);
+    console.log("Global min amount:", data?.global_min_amount);
     setFeeConfig(data);
   };
 
@@ -403,30 +405,56 @@ export default function WithdrawFunds() {
     return true;
   };
 
-  // ✅ Helper functions to get dynamic values from the database
-  const getMinimumLimit = (method: string): number => {
-    if (!feeConfig) return 28000; // Fallback while loading
-    const globalMin = Number(feeConfig.minimum_withdrawal) || 0;
+  // ✅ FIXED: Get effective minimum limit (respects global toggle properly)
+  const getEffectiveMinLimit = (method: string): number => {
+    if (!feeConfig) return 28000;
+    
     let methodMin = 0;
     switch (method) {
       case "crypto": methodMin = Number(feeConfig.crypto_min_limit) || 0; break;
       case "bank": methodMin = Number(feeConfig.bank_min_limit) || 0; break;
       case "card": methodMin = Number(feeConfig.card_min_limit) || 0; break;
       case "cash": methodMin = Number(feeConfig.cash_mailing_min_limit) || 0; break;
-      default: methodMin = globalMin;
+      default: methodMin = 0;
     }
-    return Math.max(globalMin, methodMin);
+    
+    // ✅ Handle both boolean true and string "true"
+    const isGlobalMinEnabled = feeConfig.global_min_enabled === true || feeConfig.global_min_enabled === "true";
+    
+    if (isGlobalMinEnabled) {
+      const globalMin = Number(feeConfig.global_min_amount) || 0;
+      const effectiveMin = Math.max(globalMin, methodMin);
+      console.log(`Global Min: ${globalMin}, Method Min: ${methodMin}, Effective: ${effectiveMin}`);
+      return effectiveMin;
+    }
+    
+    return methodMin;
   };
 
-  const getMaximumLimit = (method: string): number => {
+  // ✅ FIXED: Get effective maximum limit (respects global toggle properly)
+  const getEffectiveMaxLimit = (method: string): number => {
     if (!feeConfig) return 50000;
+    
+    let methodMax = 50000;
     switch (method) {
-      case "crypto": return Number(feeConfig.crypto_max_limit) || 50000;
-      case "bank": return Number(feeConfig.bank_max_limit) || 50000;
-      case "card": return Number(feeConfig.card_max_limit) || 30000;
-      case "cash": return Number(feeConfig.cash_mailing_max_limit) || 100000;
-      default: return 50000;
+      case "crypto": methodMax = Number(feeConfig.crypto_max_limit) || 50000; break;
+      case "bank": methodMax = Number(feeConfig.bank_max_limit) || 50000; break;
+      case "card": methodMax = Number(feeConfig.card_max_limit) || 30000; break;
+      case "cash": methodMax = Number(feeConfig.cash_mailing_max_limit) || 100000; break;
+      default: methodMax = 50000;
     }
+    
+    // ✅ Handle both boolean true and string "true"
+    const isGlobalMaxEnabled = feeConfig.global_max_enabled === true || feeConfig.global_max_enabled === "true";
+    
+    if (isGlobalMaxEnabled) {
+      const globalMax = Number(feeConfig.global_max_amount) || 0;
+      if (globalMax > 0) {
+        return Math.min(globalMax, methodMax);
+      }
+    }
+    
+    return methodMax;
   };
 
   const getFeePercent = (method: string) => {
@@ -449,6 +477,30 @@ export default function WithdrawFunds() {
       case "cash": return feeConfig.cash_mailing_enabled !== false;
       default: return true;
     }
+  };
+
+  // ✅ FIXED: Combined limit check using effective limits
+  const checkWithdrawalLimits = (amount: number, method: string): boolean => {
+    if (!feeConfig) return true;
+    
+    const minLimit = getEffectiveMinLimit(method);
+    const maxLimit = getEffectiveMaxLimit(method);
+    
+    if (amount < minLimit) {
+      toast.error(`Minimum withdrawal amount is €${minLimit.toLocaleString()}. You entered €${amount.toLocaleString()}.`, {
+        duration: 5000,
+      });
+      return false;
+    }
+    
+    if (maxLimit > 0 && amount > maxLimit) {
+      toast.error(`Maximum withdrawal amount is €${maxLimit.toLocaleString()}. You entered €${amount.toLocaleString()}.`, {
+        duration: 5000,
+      });
+      return false;
+    }
+    
+    return true;
   };
 
   const createWithdrawalRecord = async (method: string, formData: any, status: string, additionalData: any = {}) => {
@@ -477,7 +529,6 @@ export default function WithdrawFunds() {
 
   // ============ BANK WITHDRAWAL ============
   const handleBankWithdrawal = async () => {
-    // Ensure we have the latest config
     await fetchFeeConfig();
     
     if (!bankForm.accountName || !bankForm.accountNumber || !bankForm.amount) {
@@ -487,13 +538,7 @@ export default function WithdrawFunds() {
     const amount = parseFloat(bankForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error("Please enter a valid amount"); return; }
     
-    // ✅ Check minimum withdrawal
-    const minLimit = getMinimumLimit("bank");
-    if (amount < minLimit) {
-      toast.error(`Minimum withdrawal amount is €${minLimit.toLocaleString()}. Your withdrawal of €${amount.toLocaleString()} is below the limit.`);
-      return;
-    }
-    
+    if (!checkWithdrawalLimits(amount, "bank")) return;
     if (!checkBalance(amount)) return;
     
     const amountNum = parseFloat(bankForm.amount);
@@ -555,7 +600,6 @@ export default function WithdrawFunds() {
 
   // ============ CRYPTO WITHDRAWAL ============
   const handleCryptoWithdrawal = async () => {
-    // Ensure we have the latest config
     await fetchFeeConfig();
     
     if (!cryptoForm.walletAddress || !cryptoForm.amount) {
@@ -565,13 +609,7 @@ export default function WithdrawFunds() {
     const amount = parseFloat(cryptoForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error("Please enter a valid amount"); return; }
     
-    // ✅ Check minimum withdrawal
-    const minLimit = getMinimumLimit("crypto");
-    if (amount < minLimit) {
-      toast.error(`Minimum withdrawal amount is €${minLimit.toLocaleString()}. Your withdrawal of €${amount.toLocaleString()} is below the limit.`);
-      return;
-    }
-    
+    if (!checkWithdrawalLimits(amount, "crypto")) return;
     if (!checkBalance(amount)) return;
     
     const amountNum = parseFloat(cryptoForm.amount);
@@ -608,7 +646,6 @@ export default function WithdrawFunds() {
 
   // ============ CARD WITHDRAWAL ============
   const handleCardWithdrawal = async () => {
-    // Ensure we have the latest config
     await fetchFeeConfig();
     
     if (!cardForm.cardholderName || !cardForm.cardNumber || !cardForm.amount) {
@@ -618,13 +655,7 @@ export default function WithdrawFunds() {
     const amount = parseFloat(cardForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error("Please enter a valid amount"); return; }
     
-    // ✅ Check minimum withdrawal
-    const minLimit = getMinimumLimit("card");
-    if (amount < minLimit) {
-      toast.error(`Minimum withdrawal amount is €${minLimit.toLocaleString()}. Your withdrawal of €${amount.toLocaleString()} is below the limit.`);
-      return;
-    }
-    
+    if (!checkWithdrawalLimits(amount, "card")) return;
     if (!checkBalance(amount)) return;
     
     const amountNum = parseFloat(cardForm.amount);
@@ -681,7 +712,6 @@ export default function WithdrawFunds() {
 
   // ============ CASH WITHDRAWAL ============
   const handleCashWithdrawal = async () => {
-    // Ensure we have the latest config
     await fetchFeeConfig();
     
     if (!cashForm.deliveryAddress || !cashForm.contactPhone || !cashForm.amount) {
@@ -691,13 +721,7 @@ export default function WithdrawFunds() {
     const amount = parseFloat(cashForm.amount);
     if (isNaN(amount) || amount <= 0) { toast.error("Please enter a valid amount"); return; }
     
-    // ✅ Check minimum withdrawal
-    const minLimit = getMinimumLimit("cash");
-    if (amount < minLimit) {
-      toast.error(`Minimum withdrawal amount is €${minLimit.toLocaleString()}. Your withdrawal of €${amount.toLocaleString()} is below the limit.`);
-      return;
-    }
-    
+    if (!checkWithdrawalLimits(amount, "cash")) return;
     if (!checkBalance(amount)) return;
     
     const amountNum = parseFloat(cashForm.amount);
@@ -806,11 +830,11 @@ export default function WithdrawFunds() {
                         type="number" 
                         value={bankForm.amount} 
                         onChange={(e) => { const val = e.target.value; setBankForm({ ...bankForm, amount: val }); const country = countries.find(c => c.code === bankForm.country); if (country && val) setConvertedAmount(parseFloat(val) * country.exchangeRate); }} 
-                        placeholder="Enter amount"
+                        placeholder={`Min: €${getEffectiveMinLimit("bank").toLocaleString()}`}
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         <Info className="w-3 h-3 inline mr-1" />
-                        Min: €{getMinimumLimit("bank").toLocaleString()} | Max: €{getMaximumLimit("bank").toLocaleString()}
+                        Min: €{getEffectiveMinLimit("bank").toLocaleString()} | Max: €{getEffectiveMaxLimit("bank").toLocaleString()}
                       </p>
                     </div>
                     <div><Label>Preferred Currency</Label><Select value={selectedCurrency} onValueChange={(v) => { setSelectedCurrency(v); const currencyData = currencyList.find(c => c.code === v); if (currencyData) { setExchangeRate(currencyData.rate); const amount = parseFloat(bankForm.amount); if (!isNaN(amount) && amount > 0) setConvertedAmount(amount * currencyData.rate); } }}><SelectTrigger><SelectValue placeholder="Select currency" /></SelectTrigger><SelectContent>{currencyList.map((currency) => (<SelectItem key={currency.code} value={currency.code}>{currency.name} ({currency.symbol})</SelectItem>))}</SelectContent></Select>{convertedAmount > 0 && (<p className="text-xs text-green-600 mt-1">≈ {convertedAmount.toFixed(2)} {selectedCurrency}</p>)}</div>
@@ -819,7 +843,7 @@ export default function WithdrawFunds() {
                   <div className="flex items-center gap-2"><Checkbox id="saveBank" checked={saveCurrentBank} onCheckedChange={(checked) => setSaveCurrentBank(!!checked)} /><label htmlFor="saveBank" className="text-sm flex items-center gap-1"><Save className="w-3 h-3" /> Save this bank for future withdrawals</label></div>
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                     <p className="text-sm font-medium">A {getFeePercent("bank")}% fee will be charged.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getMinimumLimit("bank").toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getEffectiveMinLimit("bank").toLocaleString()}</p>
                   </div>
                   <Button onClick={handleBankWithdrawal} className="w-full bg-gold text-black hover:bg-gold/90">Submit Withdrawal</Button>
                 </div>
@@ -841,17 +865,17 @@ export default function WithdrawFunds() {
                       type="number" 
                       value={cryptoForm.amount} 
                       onChange={(e) => setCryptoForm({ ...cryptoForm, amount: e.target.value })} 
-                      placeholder="Enter amount"
+                      placeholder={`Min: €${getEffectiveMinLimit("crypto").toLocaleString()}`}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       <Info className="w-3 h-3 inline mr-1" />
-                      Min: €{getMinimumLimit("crypto").toLocaleString()} | Max: €{getMaximumLimit("crypto").toLocaleString()}
+                      Min: €{getEffectiveMinLimit("crypto").toLocaleString()} | Max: €{getEffectiveMaxLimit("crypto").toLocaleString()}
                     </p>
                   </div>
                   <div className="p-2 bg-blue-500/10 rounded-lg flex items-center gap-2"><ClockIcon className="w-4 h-4 text-blue-500" /><p className="text-xs text-blue-600">Estimated arrival: {getEstimatedArrival("crypto")}</p></div>
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                     <p className="text-sm font-medium">A {getFeePercent("crypto")}% fee will be charged.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getMinimumLimit("crypto").toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getEffectiveMinLimit("crypto").toLocaleString()}</p>
                   </div>
                   <Button onClick={handleCryptoWithdrawal} className="w-full bg-gold text-black">Submit Withdrawal</Button>
                 </div>
@@ -865,10 +889,17 @@ export default function WithdrawFunds() {
                   <div className="mb-4 p-3 bg-blue-500/10 rounded-lg"><p className="text-sm">Withdraw directly to your Visa, Mastercard, or American Express.</p></div>
                   {savedCards.length > 0 && (<div><Label>Saved Cards</Label><Select value={selectedSavedCard?.id} onValueChange={(v) => { const card = savedCards.find(c => c.id === v); if (card) { setSelectedSavedCard(card); setCardForm({ ...cardForm, cardholderName: card.cardholder_name, cardNumber: "", expiryDate: card.card_expiry, billingZip: card.billing_zip }); } }}><SelectTrigger><SelectValue placeholder="Select a saved card" /></SelectTrigger><SelectContent>{savedCards.map((card) => (<SelectItem key={card.id} value={card.id}>{card.card_number_masked} - {card.card_type} (Expires: {card.card_expiry})</SelectItem>))}</SelectContent></Select></div>)}
                   <div className="grid md:grid-cols-2 gap-4"><div><Label>Cardholder Name *</Label><Input value={cardForm.cardholderName} onChange={(e) => setCardForm({ ...cardForm, cardholderName: e.target.value })} placeholder="John Doe" /></div>
-                  <div><Label>Amount (EUR) *</Label><Input type="number" value={cardForm.amount} onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} placeholder="Enter amount" />
+                  <div>
+                    <Label>Amount (EUR) *</Label>
+                    <Input 
+                      type="number" 
+                      value={cardForm.amount} 
+                      onChange={(e) => setCardForm({ ...cardForm, amount: e.target.value })} 
+                      placeholder={`Min: €${getEffectiveMinLimit("card").toLocaleString()}`}
+                    />
                     <p className="text-xs text-muted-foreground mt-1">
                       <Info className="w-3 h-3 inline mr-1" />
-                      Min: €{getMinimumLimit("card").toLocaleString()} | Max: €{getMaximumLimit("card").toLocaleString()}
+                      Min: €{getEffectiveMinLimit("card").toLocaleString()} | Max: €{getEffectiveMaxLimit("card").toLocaleString()}
                     </p>
                   </div>
                   </div>
@@ -879,7 +910,7 @@ export default function WithdrawFunds() {
                   <div className="p-2 bg-blue-500/10 rounded-lg flex items-center gap-2"><ClockIcon className="w-4 h-4 text-blue-500" /><p className="text-xs text-blue-600">Estimated arrival: {getEstimatedArrival("card")}</p></div>
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                     <p className="text-sm font-medium">A {getFeePercent("card")}% fee will be charged.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getMinimumLimit("card").toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getEffectiveMinLimit("card").toLocaleString()}</p>
                   </div>
                   <Button onClick={handleCardWithdrawal} className="w-full bg-gold text-black">Submit Withdrawal</Button>
                 </div>
@@ -900,18 +931,18 @@ export default function WithdrawFunds() {
                       type="number" 
                       value={cashForm.amount} 
                       onChange={(e) => setCashForm({ ...cashForm, amount: e.target.value })} 
-                      placeholder="Enter amount" 
-                      min={100} 
+                      placeholder={`Min: €${getEffectiveMinLimit("cash").toLocaleString()}`}
+                      min={100}
                     />
                     <p className="text-xs text-muted-foreground mt-1">
                       <Info className="w-3 h-3 inline mr-1" />
-                      Min: €{getMinimumLimit("cash").toLocaleString()} | Max: €{getMaximumLimit("cash").toLocaleString()}
+                      Min: €{getEffectiveMinLimit("cash").toLocaleString()} | Max: €{getEffectiveMaxLimit("cash").toLocaleString()}
                     </p>
                   </div>
                   <div className="p-2 bg-blue-500/10 rounded-lg flex items-center gap-2"><ClockIcon className="w-4 h-4 text-blue-500" /><p className="text-xs text-blue-600">Estimated arrival: {getEstimatedArrival("cash")}</p></div>
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg">
                     <p className="text-sm font-medium">A {getFeePercent("cash")}% fee will be charged.</p>
-                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getMinimumLimit("cash").toLocaleString()}</p>
+                    <p className="text-xs text-muted-foreground mt-1">Minimum withdrawal: €{getEffectiveMinLimit("cash").toLocaleString()}</p>
                   </div>
                   <Button onClick={handleCashWithdrawal} className="w-full bg-gold text-black">Submit Withdrawal</Button>
                 </div>
