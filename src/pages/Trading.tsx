@@ -8,7 +8,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { useMarketSentiment } from "@/hooks/useMarketSentiment";
 import { useUnifiedBalance } from "@/hooks/useUnifiedBalance";
 import { tradingService, TradeRecord } from "@/services/tradingService";
-import { advancedTradingService, AdvancedTradeOptions, TradeWithHistory } from "@/services/advancedTradingService";
+import { advancedTradingService } from "@/services/advancedTradingService";
 import { enhancedPriceService, EnhancedCryptoPrice } from "@/services/enhancedPriceService";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
@@ -26,11 +26,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { 
   Wifi, WifiOff, ChevronUp, ChevronDown, 
   Activity, History, Volume2, TrendingUp, BarChart3,
   X, Menu, ArrowUpRight, ArrowDownRight,
-  RefreshCw, Clock, AlertCircle, Settings2
+  RefreshCw, Clock, Settings2, DollarSign, Bitcoin
 } from "lucide-react";
 import { toast } from "sonner";
 import { checkProfitMilestones } from "@/lib/profitMilestones";
@@ -269,7 +271,7 @@ const CryptoMarketList = ({
   );
 };
 
-// Trade Form Component with Advanced Options
+// Trade Form Component with Fiat/Crypto Switch
 const TradeFormComponent = ({ 
   selectedCrypto, 
   availableBalance, 
@@ -290,14 +292,36 @@ const TradeFormComponent = ({
   const [expiryMinutes, setExpiryMinutes] = useState<number>(0);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  // NEW: Fiat/Crypto switch state
+  const [useFiatAmount, setUseFiatAmount] = useState(false);
+  const [fiatAmount, setFiatAmount] = useState<number>(0);
 
   if (isLoading || !selectedCrypto) {
     return <TradeFormSkeleton />;
   }
 
   const currentPrice = selectedCrypto.price || 0;
-  const totalValue = amount * currentPrice;
-  const canTrade = totalValue <= availableBalance && amount > 0;
+  
+  // Calculate crypto amount from fiat amount or vice versa
+  const cryptoAmount = useFiatAmount ? (fiatAmount / currentPrice) : amount;
+  const displayFiatAmount = useFiatAmount ? fiatAmount : (amount * currentPrice);
+  const totalValue = cryptoAmount * currentPrice;
+  const canTrade = totalValue <= availableBalance && cryptoAmount > 0;
+
+  // Handle fiat amount change
+  const handleFiatAmountChange = (value: number) => {
+    setFiatAmount(value);
+    const calculatedCrypto = value / currentPrice;
+    setAmount(calculatedCrypto);
+  };
+
+  // Handle crypto amount change
+  const handleCryptoAmountChange = (value: number) => {
+    setAmount(value);
+    const calculatedFiat = value * currentPrice;
+    setFiatAmount(calculatedFiat);
+  };
 
   const handleSubmit = async () => {
     if (!canTrade) {
@@ -305,7 +329,7 @@ const TradeFormComponent = ({
       return;
     }
     
-    if (amount <= 0) {
+    if (cryptoAmount <= 0) {
       toast.error("Please enter a valid amount");
       return;
     }
@@ -315,14 +339,16 @@ const TradeFormComponent = ({
     try {
       await onTrade({
         side,
-        quantity: amount,
+        quantity: cryptoAmount,
         price: currentPrice,
         stopLoss: stopLoss || undefined,
         takeProfit: takeProfit || undefined,
         expiryMinutes: expiryMinutes || undefined
       });
       
+      // Reset form fields
       setAmount(0);
+      setFiatAmount(0);
       setStopLoss(0);
       setTakeProfit(0);
       setExpiryMinutes(0);
@@ -341,6 +367,7 @@ const TradeFormComponent = ({
   };
 
   const quickAmounts = [0.001, 0.005, 0.01, 0.05, 0.1];
+  const quickFiatAmounts = [50, 100, 250, 500, 1000];
 
   return (
     <Card>
@@ -357,6 +384,7 @@ const TradeFormComponent = ({
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Buy/Sell Buttons */}
         <div className="grid grid-cols-2 gap-3">
           <Button
             variant={side === 'buy' ? 'default' : 'outline'}
@@ -376,23 +404,63 @@ const TradeFormComponent = ({
           </Button>
         </div>
 
+        {/* Fiat/Crypto Toggle Switch */}
+        <div className="flex items-center justify-between p-2 bg-muted/30 rounded-lg">
+          <div className="flex items-center gap-2">
+            {useFiatAmount ? (
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <Bitcoin className="h-4 w-4 text-muted-foreground" />
+            )}
+            <Label className="text-sm cursor-pointer" onClick={() => setUseFiatAmount(!useFiatAmount)}>
+              {useFiatAmount ? "Amount (EUR)" : `Amount (${selectedCrypto.symbol})`}
+            </Label>
+          </div>
+          <Switch
+            checked={useFiatAmount}
+            onCheckedChange={setUseFiatAmount}
+            className="data-[state=checked]:bg-primary"
+          />
+        </div>
+
+        {/* Amount Input */}
         <div>
-          <label className="text-sm text-muted-foreground mb-1 block">Amount ({selectedCrypto.symbol})</label>
+          <label className="text-sm text-muted-foreground mb-1 block">
+            {useFiatAmount ? `Amount (EUR)` : `Amount (${selectedCrypto.symbol})`}
+          </label>
           <input
             type="number"
-            value={amount || ''}
-            onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
+            value={useFiatAmount ? (fiatAmount || '') : (amount || '')}
+            onChange={(e) => {
+              const val = parseFloat(e.target.value) || 0;
+              if (useFiatAmount) {
+                handleFiatAmountChange(val);
+              } else {
+                handleCryptoAmountChange(val);
+              }
+            }}
             className="w-full p-2 rounded-lg border border-input bg-background"
-            placeholder={`Enter amount in ${selectedCrypto.symbol}`}
-            step="0.0001"
+            placeholder={useFiatAmount ? "Enter amount in EUR" : `Enter amount in ${selectedCrypto.symbol}`}
+            step={useFiatAmount ? "1" : "0.0001"}
           />
           <div className="flex justify-between mt-2">
-            <span className="text-xs text-muted-foreground">≈ €{totalValue.toFixed(2)}</span>
+            <span className="text-xs text-muted-foreground">
+              {useFiatAmount 
+                ? `≈ ${cryptoAmount.toFixed(6)} ${selectedCrypto.symbol}`
+                : `≈ €${displayFiatAmount.toFixed(2)}`
+              }
+            </span>
             <div className="flex gap-1">
-              {quickAmounts.map(qty => (
+              {(useFiatAmount ? quickFiatAmounts : quickAmounts).map(qty => (
                 <button
                   key={qty}
-                  onClick={() => setAmount(qty)}
+                  onClick={() => {
+                    if (useFiatAmount) {
+                      handleFiatAmountChange(qty);
+                    } else {
+                      handleCryptoAmountChange(qty);
+                    }
+                  }}
                   className="text-xs px-2 py-0.5 rounded bg-muted hover:bg-muted/80"
                 >
                   {qty}
@@ -402,6 +470,7 @@ const TradeFormComponent = ({
           </div>
         </div>
 
+        {/* Stop Loss & Take Profit */}
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="text-sm text-muted-foreground mb-1 block">Stop Loss (€)</label>
@@ -414,7 +483,7 @@ const TradeFormComponent = ({
             />
             {stopLoss > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                Risk: €{((currentPrice - stopLoss) * amount).toFixed(2)}
+                Risk: €{((currentPrice - stopLoss) * cryptoAmount).toFixed(2)}
               </p>
             )}
           </div>
@@ -429,12 +498,13 @@ const TradeFormComponent = ({
             />
             {takeProfit > 0 && (
               <p className="text-xs text-muted-foreground mt-1">
-                Potential: €{((takeProfit - currentPrice) * amount).toFixed(2)}
+                Potential: €{((takeProfit - currentPrice) * cryptoAmount).toFixed(2)}
               </p>
             )}
           </div>
         </div>
 
+        {/* Advanced Options Toggle */}
         <Button
           variant="ghost"
           size="sm"
@@ -471,16 +541,22 @@ const TradeFormComponent = ({
           </div>
         )}
 
+        {/* Total Value Display */}
+        <div className="p-2 bg-muted/20 rounded-lg text-center">
+          <p className="text-xs text-muted-foreground">Total Trade Value</p>
+          <p className="text-lg font-bold">€{totalValue.toFixed(2)}</p>
+        </div>
+
         <Button
           className="w-full"
           onClick={handleSubmit}
-          disabled={isSubmitting || amount <= 0 || !canTrade}
+          disabled={isSubmitting || cryptoAmount <= 0 || !canTrade}
           size="lg"
         >
           {isSubmitting ? 'Processing...' : `${side === 'buy' ? 'Buy' : 'Sell'} ${selectedCrypto.symbol}`}
         </Button>
 
-        {!canTrade && amount > 0 && (
+        {!canTrade && cryptoAmount > 0 && (
           <p className="text-xs text-red-500 text-center">
             Insufficient trading balance. Available: €{availableBalance.toFixed(2)}
           </p>
@@ -806,6 +882,7 @@ const TradingContent = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [chartApi, setChartApi] = useState<any>(null);
   const [isLoadingTrades, setIsLoadingTrades] = useState(false);
+  const [isTradeExecuting, setIsTradeExecuting] = useState(false);
   
   const navigate = useNavigate();
   const { theme } = useTheme();
@@ -813,7 +890,6 @@ const TradingContent = () => {
   const { playSound } = useSounds();
   const { balance, loading: balanceLoading, refreshBalance } = useUnifiedBalance(session?.user?.id || null);
   
-  const activeTradeLinesRef = useRef<Map<string, any>>(new Map());
   const monitoringInitialized = useRef(false);
 
   const [accountBalances, setAccountBalances] = useState({
@@ -880,7 +956,7 @@ const TradingContent = () => {
     const totalUnrealizedPnl = positions.reduce((sum, p) => sum + p.pnl, 0);
     
     setAccountBalances({
-      total: (balance?.funding_balance || balance?.trading_balance || 0) + totalInvested,
+      total: (balance?.trading_balance || 0) + totalInvested,
       available: balance?.trading_balance || 0,
       invested: totalInvested,
       todayPnl: balance?.today_pnl || 0,
@@ -912,7 +988,6 @@ const TradingContent = () => {
       fetchProfile(session.user.id);
       initializePortfolio(session.user.id);
       loadTrades(session.user.id);
-      
       enhancedPriceService.setUserId(session.user.id);
     }
     
@@ -929,10 +1004,10 @@ const TradingContent = () => {
       advancedTradingService.initializeRealtimeMonitoring(
         session.user.id,
         (updatedTrade) => {
-          // Only show notification for auto-closed trades
           if (updatedTrade.status === 'closed') {
             toast.info(`${updatedTrade.symbol} has been auto-closed`, { duration: 3000 });
             loadTrades(session.user.id);
+            refreshBalance();
           }
         }
       );
@@ -944,7 +1019,7 @@ const TradingContent = () => {
         monitoringInitialized.current = false;
       }
     };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, refreshBalance]);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase.from("profiles").select("*").eq("id", userId).single();
@@ -1020,50 +1095,46 @@ const TradingContent = () => {
   }, []);
 
   const handleTrade = useCallback(async (trade: { side: "buy" | "sell"; quantity: number; price: number; stopLoss?: number; takeProfit?: number; expiryMinutes?: number }) => {
-    console.log("=== TRADE EXECUTION STARTED ===");
-    console.log("Trade details:", trade);
-    
-    if (!selectedCrypto) {
-      console.error("TRADE ERROR: No cryptocurrency selected");
-      toast.error("No cryptocurrency selected");
-      throw new Error("No cryptocurrency selected");
+    if (isTradeExecuting) {
+      console.log("Trade already in progress, ignoring...");
+      return;
     }
     
-    if (!session?.user?.id) {
-      console.error("TRADE ERROR: User not logged in");
-      toast.error("You must be logged in to trade");
-      throw new Error("User not logged in");
-    }
-
-    if (!portfolioId) {
-      console.error("TRADE ERROR: No portfolio found");
-      toast.error("Trading portfolio not initialized");
-      throw new Error("No portfolio found");
-    }
-
-    const totalCost = trade.quantity * trade.price;
-    console.log(`Total cost: €${totalCost}, Available balance: €${accountBalances.available}`);
-
-    if (totalCost > accountBalances.available) {
-      console.error("TRADE ERROR: Insufficient balance");
-      toast.error(`Insufficient trading balance. Need €${totalCost.toFixed(2)}`);
-      throw new Error("Insufficient balance");
-    }
-
-    if (trade.quantity <= 0) {
-      console.error("TRADE ERROR: Invalid quantity");
-      toast.error("Please enter a valid amount");
-      throw new Error("Invalid quantity");
-    }
-
-    if (trade.price <= 0) {
-      console.error("TRADE ERROR: Invalid price");
-      toast.error("Invalid price data");
-      throw new Error("Invalid price");
-    }
-
+    setIsTradeExecuting(true);
+    
     try {
-      console.log("Creating trade with advancedTradingService...");
+      console.log("=== TRADE EXECUTION STARTED ===");
+      console.log("Trade details:", trade);
+      
+      if (!selectedCrypto) {
+        toast.error("No cryptocurrency selected");
+        return;
+      }
+      
+      if (!session?.user?.id) {
+        toast.error("You must be logged in to trade");
+        return;
+      }
+
+      if (!portfolioId) {
+        toast.error("Trading portfolio not initialized");
+        return;
+      }
+
+      const totalCost = trade.quantity * trade.price;
+      console.log(`Total cost: €${totalCost}, Available: €${accountBalances.available}`);
+
+      if (totalCost > accountBalances.available) {
+        toast.error(`Insufficient balance. Need €${totalCost.toFixed(2)}`);
+        return;
+      }
+
+      if (trade.quantity <= 0) {
+        toast.error("Please enter a valid amount");
+        return;
+      }
+
+      console.log("Creating trade...");
       
       const newTrade = await advancedTradingService.createAdvancedTrade(
         session.user.id,
@@ -1078,56 +1149,66 @@ const TradingContent = () => {
           stopLoss: trade.stopLoss,
           takeProfit: trade.takeProfit,
           orderType: 'market',
-          notes: `${trade.side} ${selectedCrypto.symbol} at €${trade.price}`
         }
       );
 
-      console.log("Trade creation result:", newTrade);
+      console.log("Trade result:", newTrade);
 
-      if (newTrade && newTrade.id) {
-        console.log(`✅ Trade created successfully! ID: ${newTrade.id}`);
-        toast.success(`${trade.side === "buy" ? "Buy" : "Sell"} order placed successfully`);
+      if (newTrade?.id) {
+        toast.success(`${trade.side === "buy" ? "Bought" : "Sold"} ${trade.quantity.toFixed(6)} ${selectedCrypto.symbol}`);
         
         if (trade.expiryMinutes && trade.expiryMinutes > 0) {
-          toast.info(`Trade will auto-close in ${trade.expiryMinutes} minutes`, { duration: 4000 });
+          toast.info(`Trade will auto-close in ${trade.expiryMinutes} minutes`);
         }
         
         playSound("tradeOpen");
         
-        await Promise.all([
-          refreshBalance(),
-          loadTrades(session.user.id)
-        ]);
+        // Refresh data
+        await refreshBalance();
+        await loadTrades(session.user.id);
         
+        // Switch to active positions
         setActiveTab('positions');
         
-        setTimeout(() => {
-          const positionsElement = document.getElementById('active-positions-section');
-          if (positionsElement) {
-            positionsElement.scrollIntoView({ behavior: 'smooth' });
-          }
-        }, 100);
-        
-        console.log("=== TRADE EXECUTION COMPLETED SUCCESSFULLY ===");
+        console.log("Trade completed successfully");
       } else {
-        console.error("TRADE ERROR: Trade creation returned null or missing ID");
-        toast.error("Failed to place order - trade service returned invalid response");
-        throw new Error("Trade creation failed");
+        toast.error("Failed to create trade");
       }
     } catch (error) {
-      console.error("TRADE EXCEPTION:", error);
+      console.error("Trade error:", error);
       toast.error(`Trade failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-      throw error;
+    } finally {
+      setIsTradeExecuting(false);
     }
-  }, [selectedCrypto, session?.user?.id, portfolioId, accountBalances.available, refreshBalance, playSound, loadTrades]);
+  }, [selectedCrypto, session?.user?.id, portfolioId, accountBalances.available, refreshBalance, loadTrades, playSound, isTradeExecuting]);
 
   const handleClosePosition = useCallback(async (id: string) => {
-    const position = positions.find((p) => p.id === id);
-    if (!position) return;
-
-    const closedTrade = await tradingService.closeTrade(id, position.currentPrice, position.pnl);
+    console.log("=== CLOSING POSITION ===");
+    console.log("Position ID:", id);
     
-    if (closedTrade) {
+    const position = positions.find((p) => p.id === id);
+    if (!position) {
+      console.error("Position not found:", id);
+      toast.error("Position not found");
+      return;
+    }
+
+    console.log("Position details:", {
+      symbol: position.symbol,
+      side: position.side,
+      quantity: position.quantity,
+      entryPrice: position.entryPrice,
+      currentPrice: position.currentPrice,
+      pnl: position.pnl
+    });
+
+    const success = await advancedTradingService.closeTradeManually(
+      id, 
+      position.currentPrice, 
+      position.pnl
+    );
+    
+    if (success) {
       if (position.pnl >= 0) {
         playSound("tradeWin");
         toast.success(`Position closed with +€${position.pnl.toFixed(2)} profit`);
@@ -1135,12 +1216,17 @@ const TradingContent = () => {
         playSound("tradeLoss");
         toast.success(`Position closed with -€${Math.abs(position.pnl).toFixed(2)} loss`);
       }
+      
       await refreshBalance();
       await loadTrades(session?.user?.id || '');
+      
       if (position.pnl > 0 && session?.user?.id) {
         await checkProfitMilestones(session.user.id);
       }
+      
+      console.log("✅ Position closed successfully");
     } else {
+      console.error("Failed to close position");
       toast.error("Failed to close position");
     }
   }, [positions, playSound, refreshBalance, session?.user?.id, loadTrades]);
@@ -1148,7 +1234,7 @@ const TradingContent = () => {
   const handleExtendTrade = useCallback(async (id: string, minutes: number) => {
     const success = await advancedTradingService.extendTradeExpiry(id, minutes);
     if (success) {
-      toast.success(`Trade extended by ${minutes} minutes`);
+      toast.success(`Extended by ${minutes} minutes`);
       await loadTrades(session?.user?.id || '');
     } else {
       toast.error("Failed to extend trade");
@@ -1199,19 +1285,19 @@ const TradingContent = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center gap-2 py-2 overflow-x-auto">
             <Button variant={activeTab === 'positions' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('positions')}>
-              <Activity className="h-4 w-4 mr-2" /> Active Positions ({positions.length})
+              <Activity className="h-4 w-4 mr-2" /> Positions ({positions.length})
             </Button>
             <Button variant={activeTab === 'history' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('history')}>
-              <History className="h-4 w-4 mr-2" /> Trade History ({tradeHistory.length})
+              <History className="h-4 w-4 mr-2" /> History ({tradeHistory.length})
             </Button>
             <Button variant={activeTab === 'sound' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('sound')}>
-              <Volume2 className="h-4 w-4 mr-2" /> Sound Settings
+              <Volume2 className="h-4 w-4 mr-2" /> Sounds
             </Button>
             <Button variant={activeTab === 'trending' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('trending')}>
-              <TrendingUp className="h-4 w-4 mr-2" /> Trending Cryptos
+              <TrendingUp className="h-4 w-4 mr-2" /> Trending
             </Button>
             <Button variant={activeTab === 'sentiment' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('sentiment')}>
-              <BarChart3 className="h-4 w-4 mr-2" /> Market Sentiment
+              <BarChart3 className="h-4 w-4 mr-2" /> Sentiment
             </Button>
             <Button variant={activeTab === 'analytics' ? 'default' : 'ghost'} size="sm" onClick={() => setActiveTab('analytics')}>
               <BarChart3 className="h-4 w-4 mr-2" /> Analytics
@@ -1290,7 +1376,7 @@ const TradingContent = () => {
               availableBalance={accountBalances.available} 
               onTrade={handleTrade} 
               onTradeExecuted={() => setActiveTab('positions')}
-              isLoading={pricesLoading}
+              isLoading={pricesLoading || isTradeExecuting}
             />
           </div>
         </div>
@@ -1299,9 +1385,9 @@ const TradingContent = () => {
           <div className="mt-6">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="mb-4 w-full justify-start overflow-x-auto lg:hidden">
-                <TabsTrigger value="positions">Active Positions ({positions.length})</TabsTrigger>
-                <TabsTrigger value="history">Trade History ({tradeHistory.length})</TabsTrigger>
-                <TabsTrigger value="sound">Sound Settings</TabsTrigger>
+                <TabsTrigger value="positions">Positions ({positions.length})</TabsTrigger>
+                <TabsTrigger value="history">History ({tradeHistory.length})</TabsTrigger>
+                <TabsTrigger value="sound">Sounds</TabsTrigger>
                 <TabsTrigger value="analytics">Analytics</TabsTrigger>
               </TabsList>
 

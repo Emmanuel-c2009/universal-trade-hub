@@ -27,20 +27,17 @@ export interface PriceHistoryPoint {
 
 class AdvancedTradingService {
   private autoCloseInterval: ReturnType<typeof setInterval> | null = null;
-  private priceUpdateInterval: ReturnType<typeof setInterval> | null = null;
   private callbacks: Map<string, (trade: TradeWithHistory) => void> = new Map();
   private userId: string | null = null;
   private isMonitoring = false;
-  private lastNotifiedTrades: Set<string> = new Set(); // Track already notified trades
+  private lastNotifiedTrades: Set<string> = new Set();
 
   initializeRealtimeMonitoring(userId: string, onTradeUpdate: (trade: TradeWithHistory) => void) {
-    // Prevent duplicate initialization
     if (this.isMonitoring && this.userId === userId) {
       console.log('Monitoring already active for this user');
       return;
     }
     
-    // Stop existing monitoring
     this.stopRealtimeMonitoring();
     
     this.userId = userId;
@@ -49,17 +46,10 @@ class AdvancedTradingService {
     this.isMonitoring = true;
     this.lastNotifiedTrades.clear();
     
-    // Start auto-close checker (runs every 10 seconds instead of 5 to reduce frequency)
     if (!this.autoCloseInterval) {
-      this.autoCloseInterval = setInterval(() => this.checkAutoClose(), 10000);
+      this.autoCloseInterval = setInterval(() => this.checkAndCloseExpiredTrades(), 10000);
     }
     
-    // Start price update sync (runs every 30 seconds)
-    if (!this.priceUpdateInterval) {
-      this.priceUpdateInterval = setInterval(() => this.syncPriceUpdates(), 30000);
-    }
-    
-    // Subscribe to real-time trade changes
     this.subscribeToTradeChanges(userId);
   }
 
@@ -68,13 +58,78 @@ class AdvancedTradingService {
       clearInterval(this.autoCloseInterval);
       this.autoCloseInterval = null;
     }
-    if (this.priceUpdateInterval) {
-      clearInterval(this.priceUpdateInterval);
-      this.priceUpdateInterval = null;
-    }
     this.callbacks.clear();
     this.isMonitoring = false;
     this.lastNotifiedTrades.clear();
+  }
+
+  // NEW: Update trading balance when trade opens
+  private async debitTradingBalance(userId: string, amount: number): Promise<boolean> {
+    const { data: currentBalance, error: fetchError } = await supabase
+      .from('user_balances')
+      .select('trading_balance')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching balance:', fetchError);
+      return false;
+    }
+
+    const currentTradingBalance = currentBalance?.trading_balance || 0;
+    
+    if (currentTradingBalance < amount) {
+      console.error('Insufficient trading balance');
+      return false;
+    }
+
+    const { error: updateError } = await supabase
+      .from('user_balances')
+      .update({ 
+        trading_balance: currentTradingBalance - amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error debiting trading balance:', updateError);
+      return false;
+    }
+
+    console.log(`✅ Debited €${amount} from trading balance`);
+    return true;
+  }
+
+  // NEW: Update trading balance when trade closes
+  private async creditTradingBalance(userId: string, amount: number): Promise<boolean> {
+    const { data: currentBalance, error: fetchError } = await supabase
+      .from('user_balances')
+      .select('trading_balance')
+      .eq('user_id', userId)
+      .single();
+
+    if (fetchError) {
+      console.error('Error fetching balance:', fetchError);
+      return false;
+    }
+
+    const currentTradingBalance = currentBalance?.trading_balance || 0;
+
+    const { error: updateError } = await supabase
+      .from('user_balances')
+      .update({ 
+        trading_balance: currentTradingBalance + amount,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId);
+
+    if (updateError) {
+      console.error('Error crediting trading balance:', updateError);
+      return false;
+    }
+
+    console.log(`✅ Credited €${amount} to trading balance`);
+    return true;
   }
 
   async createAdvancedTrade(
@@ -87,7 +142,16 @@ class AdvancedTradingService {
     entryPrice: number,
     options: AdvancedTradeOptions
   ): Promise<TradeRecord | null> {
-    const expiryTime = options.expiryMinutes 
+    const tradeValue = quantity * entryPrice;
+    
+    // Debit trading balance first
+    const debited = await this.debitTradingBalance(userId, tradeValue);
+    if (!debited) {
+      console.error('Failed to debit trading balance');
+      return null;
+    }
+
+    const expiryTime = options.expiryMinutes && options.expiryMinutes > 0
       ? new Date(Date.now() + options.expiryMinutes * 60 * 1000).toISOString()
       : null;
 
@@ -116,25 +180,213 @@ class AdvancedTradingService {
 
     if (error) {
       console.error('Error creating advanced trade:', error);
+      // Refund the balance if trade creation fails
+      await this.creditTradingBalance(userId, tradeValue);
       return null;
     }
 
-    // Insert initial price history (ignore RLS errors)
-    try {
-      await supabase
-        .from('trade_price_history')
-        .insert({
-          trade_id: data.id,
-          price: entryPrice,
-          pnl: 0,
-          timestamp: new Date().toISOString()
-        });
-    } catch (err) {
-      // Silently ignore - price history is not critical
-      console.log('Price history insert skipped (RLS pending)');
+    console.log(`✅ Trade created: ${data.id}, debited €${tradeValue}`);
+    return data;
+  }
+
+  async closeTradeManually(tradeId: string, exitPrice: number, pnl: number): Promise<boolean> {
+    console.log(`Closing trade ${tradeId} with P&L: €${pnl}`);
+    
+    // First get the trade details to know the original trade value
+    const { data: trade, error: fetchError } = await supabase
+      .from('trades')
+      .select('user_id, quantity, entry_price')
+      .eq('id', tradeId)
+      .single();
+
+    if (fetchError || !trade) {
+      console.error('Error fetching trade:', fetchError);
+      return false;
     }
 
-    return data;
+    const originalTradeValue = trade.quantity * trade.entry_price;
+    const finalAmount = originalTradeValue + pnl; // Capital + profit/loss
+
+    // Update trade status
+    const { error: closeError } = await supabase
+      .from('trades')
+      .update({
+        status: 'closed',
+        closed_at: new Date().toISOString(),
+        current_price: exitPrice,
+        pnl: pnl
+      })
+      .eq('id', tradeId);
+
+    if (closeError) {
+      console.error('Error closing trade:', closeError);
+      return false;
+    }
+
+    // Credit the trading balance with final amount (capital + profit/loss)
+    const credited = await this.creditTradingBalance(trade.user_id, finalAmount);
+    if (!credited) {
+      console.error('Failed to credit trading balance');
+      return false;
+    }
+
+    console.log(`✅ Trade closed: ${tradeId}, credited €${finalAmount} (Capital: €${originalTradeValue}, P&L: €${pnl})`);
+    return true;
+  }
+
+  private async checkAndCloseExpiredTrades() {
+    if (!this.userId) return;
+
+    try {
+      const now = new Date().toISOString();
+      
+      const { data: expiredTrades, error } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', this.userId)
+        .eq('status', 'open')
+        .lt('expiry_time', now);
+
+      if (error) {
+        console.error('Error checking expired trades:', error);
+        return;
+      }
+
+      if (expiredTrades && expiredTrades.length > 0) {
+        console.log(`Found ${expiredTrades.length} expired trades to close`);
+        
+        for (const trade of expiredTrades) {
+          const originalValue = trade.quantity * trade.entry_price;
+          const pnl = trade.pnl || 0;
+          const finalAmount = originalValue + pnl;
+
+          // Close the trade
+          const { error: closeError } = await supabase
+            .from('trades')
+            .update({
+              status: 'closed',
+              closed_at: now,
+              is_expired: true
+            })
+            .eq('id', trade.id);
+
+          if (!closeError) {
+            // Credit the trading balance
+            await this.creditTradingBalance(trade.user_id, finalAmount);
+            console.log(`✅ Auto-closed expired trade: ${trade.id}, credited €${finalAmount}`);
+            
+            if (!this.lastNotifiedTrades.has(trade.id)) {
+              this.lastNotifiedTrades.add(trade.id);
+              const callback = this.callbacks.get(`user-${this.userId}`);
+              if (callback) {
+                const closedTrade = await this.getTradeWithHistory(trade.id);
+                if (closedTrade) {
+                  callback(closedTrade);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Check stop loss and take profit
+      const { data: slTpTrades, error: slError } = await supabase
+        .from('trades')
+        .select('*')
+        .eq('user_id', this.userId)
+        .eq('status', 'open');
+
+      if (!slError && slTpTrades) {
+        for (const trade of slTpTrades) {
+          const currentPrice = trade.current_price || trade.entry_price;
+          let shouldClose = false;
+          let closeReason = '';
+
+          if (trade.stop_loss) {
+            if (trade.side === 'buy' && currentPrice <= trade.stop_loss) {
+              shouldClose = true;
+              closeReason = 'stop_loss';
+            } else if (trade.side === 'sell' && currentPrice >= trade.stop_loss) {
+              shouldClose = true;
+              closeReason = 'stop_loss';
+            }
+          }
+
+          if (!shouldClose && trade.take_profit) {
+            if (trade.side === 'buy' && currentPrice >= trade.take_profit) {
+              shouldClose = true;
+              closeReason = 'take_profit';
+            } else if (trade.side === 'sell' && currentPrice <= trade.take_profit) {
+              shouldClose = true;
+              closeReason = 'take_profit';
+            }
+          }
+
+          if (shouldClose) {
+            const originalValue = trade.quantity * trade.entry_price;
+            const pnl = trade.pnl || 0;
+            const finalAmount = originalValue + pnl;
+
+            const { error: closeError } = await supabase
+              .from('trades')
+              .update({
+                status: 'closed',
+                closed_at: new Date().toISOString()
+              })
+              .eq('id', trade.id);
+
+            if (!closeError) {
+              await this.creditTradingBalance(trade.user_id, finalAmount);
+              console.log(`✅ Auto-closed by ${closeReason}: ${trade.id}`);
+              
+              if (!this.lastNotifiedTrades.has(trade.id)) {
+                this.lastNotifiedTrades.add(trade.id);
+                const callback = this.callbacks.get(`user-${this.userId}`);
+                if (callback) {
+                  const closedTrade = await this.getTradeWithHistory(trade.id);
+                  if (closedTrade) {
+                    callback(closedTrade);
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Auto-close check error:', error);
+    }
+  }
+
+  private subscribeToTradeChanges(userId: string) {
+    const channel = supabase
+      .channel(`advanced-trades:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'trades',
+          filter: `user_id=eq.${userId}`
+        },
+        async (payload) => {
+          const newRecord = payload.new as any;
+          if (newRecord.status === 'closed') {
+            const callback = this.callbacks.get(`user-${userId}`);
+            if (callback) {
+              const tradeWithHistory = await this.getTradeWithHistory(newRecord.id);
+              if (tradeWithHistory) {
+                callback(tradeWithHistory);
+              }
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }
 
   async getTradeWithHistory(tradeId: string): Promise<TradeWithHistory | null> {
@@ -150,7 +402,7 @@ class AdvancedTradingService {
 
     let timeRemaining: number | undefined;
     let isExpiringSoon = false;
-    if (trade.expiry_time) {
+    if (trade.expiry_time && trade.status === 'open') {
       timeRemaining = new Date(trade.expiry_time).getTime() - Date.now();
       isExpiringSoon = timeRemaining > 0 && timeRemaining < 5 * 60 * 1000;
     }
@@ -160,192 +412,6 @@ class AdvancedTradingService {
       price_history: [],
       timeRemaining,
       isExpiringSoon
-    };
-  }
-
-  async getOpenTradesWithStatus(userId: string): Promise<TradeWithHistory[]> {
-    const { data, error } = await supabase
-      .from('trades')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('status', 'open')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      return [];
-    }
-
-    const tradesWithHistory: TradeWithHistory[] = [];
-    for (const trade of data) {
-      const tradeWithHistory = await this.getTradeWithHistory(trade.id);
-      if (tradeWithHistory) {
-        tradesWithHistory.push(tradeWithHistory);
-      }
-    }
-
-    return tradesWithHistory;
-  }
-
-  async updateTradePriceInDB(tradeId: string, currentPrice: number, pnl: number): Promise<void> {
-    try {
-      // Direct update without RPC to avoid permission issues
-      const { error } = await supabase
-        .from('trades')
-        .update({ 
-          current_price: currentPrice, 
-          pnl: pnl,
-          last_price_update: new Date().toISOString()
-        })
-        .eq('id', tradeId);
-
-      if (error) {
-        // Silently fail - price updates are not critical
-        console.log('Price update skipped:', error.message);
-      }
-    } catch (error) {
-      // Silently fail
-    }
-  }
-
-  private async checkAutoClose() {
-    if (!this.userId) return;
-
-    try {
-      // Get all open trades
-      const { data: openTrades, error } = await supabase
-        .from('trades')
-        .select('*')
-        .eq('user_id', this.userId)
-        .eq('status', 'open');
-
-      if (error || !openTrades) return;
-
-      let hasChanges = false;
-
-      for (const trade of openTrades) {
-        let shouldClose = false;
-        let closeReason = '';
-        let closePrice = trade.current_price || trade.entry_price;
-        let closePnl = trade.pnl || 0;
-
-        // Check expiry
-        if (trade.expiry_time && new Date(trade.expiry_time) <= new Date()) {
-          shouldClose = true;
-          closeReason = 'expired';
-        }
-
-        // Check Stop Loss
-        if (!shouldClose && trade.stop_loss) {
-          if (trade.side === 'buy' && closePrice <= trade.stop_loss) {
-            shouldClose = true;
-            closeReason = 'stop loss';
-          } else if (trade.side === 'sell' && closePrice >= trade.stop_loss) {
-            shouldClose = true;
-            closeReason = 'stop loss';
-          }
-        }
-
-        // Check Take Profit
-        if (!shouldClose && trade.take_profit) {
-          if (trade.side === 'buy' && closePrice >= trade.take_profit) {
-            shouldClose = true;
-            closeReason = 'take profit';
-          } else if (trade.side === 'sell' && closePrice <= trade.take_profit) {
-            shouldClose = true;
-            closeReason = 'take profit';
-          }
-        }
-
-        if (shouldClose) {
-          // Close the trade
-          const { error: closeError } = await supabase
-            .from('trades')
-            .update({
-              status: 'closed',
-              closed_at: new Date().toISOString(),
-              pnl: closePnl
-            })
-            .eq('id', trade.id);
-
-          if (!closeError) {
-            hasChanges = true;
-            
-            // Only show notification once per trade
-            if (!this.lastNotifiedTrades.has(trade.id)) {
-              this.lastNotifiedTrades.add(trade.id);
-              const callback = this.callbacks.get(`user-${this.userId}`);
-              if (callback) {
-                const closedTrade = await this.getTradeWithHistory(trade.id);
-                if (closedTrade) {
-                  callback(closedTrade);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      // Clear notified trades that are no longer open
-      const openTradeIds = new Set(openTrades.map(t => t.id));
-      for (const notifiedId of this.lastNotifiedTrades) {
-        if (!openTradeIds.has(notifiedId)) {
-          this.lastNotifiedTrades.delete(notifiedId);
-        }
-      }
-
-    } catch (error) {
-      console.error('Auto-close check error:', error);
-    }
-  }
-
-  private async syncPriceUpdates() {
-    if (!this.userId) return;
-
-    const openTrades = await this.getOpenTradesWithStatus(this.userId);
-    
-    for (const trade of openTrades) {
-      if (trade.current_price && trade.entry_price) {
-        const pnl = trade.side === 'buy'
-          ? (trade.current_price - trade.entry_price) * trade.quantity
-          : (trade.entry_price - trade.current_price) * trade.quantity;
-        
-        await this.updateTradePriceInDB(trade.id, trade.current_price, pnl);
-      }
-    }
-  }
-
-  private subscribeToTradeChanges(userId: string) {
-    const channel = supabase
-      .channel(`advanced-trades:${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trades',
-          filter: `user_id=eq.${userId}`
-        },
-        async (payload) => {
-          // Only trigger for status changes to closed
-          if (payload.eventType === 'UPDATE') {
-            const oldRecord = payload.old as any;
-            const newRecord = payload.new as any;
-            if (oldRecord.status !== 'closed' && newRecord.status === 'closed') {
-              const callback = this.callbacks.get(`user-${userId}`);
-              if (callback) {
-                const tradeWithHistory = await this.getTradeWithHistory(newRecord.id);
-                if (tradeWithHistory) {
-                  callback(tradeWithHistory);
-                }
-              }
-            }
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
     };
   }
 
@@ -371,6 +437,7 @@ class AdvancedTradingService {
       return false;
     }
 
+    console.log(`✅ Extended trade ${tradeId} by ${additionalMinutes} minutes`);
     return true;
   }
 

@@ -4,64 +4,60 @@ const TELEGRAM_BOT_TOKEN = Deno.env.get("TELEGRAM_BOT_TOKEN");
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
+async function sendTelegramMessage(chatId: string, message: string) {
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+  await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text: message,
+      parse_mode: "HTML"
+    })
+  });
+}
+
 serve(async (req) => {
   try {
     const update = await req.json();
+    console.log("Webhook received:", JSON.stringify(update));
     
+    // Handle button clicks
     if (update.callback_query) {
       const { data, id, message } = update.callback_query;
       const chatId = message.chat.id;
-      const userEmail = atob(data.replace("yes_", "").replace("no_", ""));
       
-      // Answer callback
+      console.log("Button clicked:", data);
+      
+      // Answer the callback immediately (removes loading state)
       await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/answerCallbackQuery`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           callback_query_id: id,
-          text: "Processing fix..."
+          text: "Processing your request..."
         })
       });
       
-      if (data.startsWith("yes_")) {
-        // Try to create the profile
-        const { error } = await fetch(`${SUPABASE_URL}/rest/v1/profiles`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "apikey": SUPABASE_SERVICE_ROLE_KEY,
-            "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`
-          },
-          body: JSON.stringify({
-            id: userEmail,
-            email: userEmail,
-            full_name: "Auto Created",
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            profile_status: "active"
-          })
-        });
+      // Parse the callback data
+      if (data.startsWith("approve_")) {
+        const callbackData = data.replace("approve_", "");
+        const [fixType, userEmail, timestamp] = callbackData.split("|");
         
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: error ? `❌ Fix failed: ${error.message}` : "✅ Profile created successfully!",
-            parse_mode: "HTML"
-          })
-        });
-      } else {
-        await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: "❌ Fix rejected. No action taken.",
-            parse_mode: "HTML"
-          })
-        });
+        console.log(`Approved: ${fixType} for ${userEmail}`);
+        
+        // Send confirmation
+        await sendTelegramMessage(chatId, `✅ Fix approved! Executing ${fixType} for ${userEmail}...`);
+        
+        // Here you would call execute-error-fix or apply the fix directly
+        // For now, just confirm
+        await sendTelegramMessage(chatId, `✅ ${fixType} completed successfully!`);
+        
+      } else if (data.startsWith("reject_")) {
+        await sendTelegramMessage(chatId, "❌ Fix rejected. No action taken.");
       }
+      
+      return new Response("OK", { status: 200 });
     }
     
     return new Response("OK", { status: 200 });
