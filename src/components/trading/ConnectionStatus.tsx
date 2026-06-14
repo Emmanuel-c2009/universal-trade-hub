@@ -10,15 +10,13 @@ interface ConnectionStatusProps {
 }
 
 export const ConnectionStatus = ({ onConnectionChange }: ConnectionStatusProps) => {
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [reconnectAttempt, setReconnectAttempt] = useState(0);
-  const [isReconnecting, setIsReconnecting] = useState(false);
 
   useEffect(() => {
     const unsubscribe = enhancedPriceService.subscribeToConnection((connected, attempt) => {
       setIsConnected(connected);
       setReconnectAttempt(attempt);
-      setIsReconnecting(attempt > 0 && !connected);
       if (onConnectionChange) {
         onConnectionChange(connected);
       }
@@ -29,19 +27,19 @@ export const ConnectionStatus = ({ onConnectionChange }: ConnectionStatusProps) 
 
   const getStatusText = () => {
     if (isConnected) return 'Live';
-    if (isReconnecting) return `Reconnecting (${reconnectAttempt}/10)`;
-    return 'Polling Mode';
+    if (reconnectAttempt > 0) return `Reconnecting (${reconnectAttempt}/10)`;
+    return 'Polling';
   };
 
   const getStatusIcon = () => {
     if (isConnected) return <Wifi className="h-3 w-3" />;
-    if (isReconnecting) return <Loader2 className="h-3 w-3 animate-spin" />;
+    if (reconnectAttempt > 0) return <Loader2 className="h-3 w-3 animate-spin" />;
     return <WifiOff className="h-3 w-3" />;
   };
 
   const getStatusVariant = (): "default" | "secondary" | "destructive" | "outline" => {
     if (isConnected) return "default";
-    if (isReconnecting) return "outline";
+    if (reconnectAttempt > 0) return "outline";
     return "secondary";
   };
 
