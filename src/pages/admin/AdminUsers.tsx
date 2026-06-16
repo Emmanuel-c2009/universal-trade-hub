@@ -50,23 +50,33 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, format, subDays } from "date-fns";
 import { UserEditModal } from "@/components/admin/UserEditModal";
 
+const toNumber = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+  return typeof value === 'number' ? value : Number(value);
+};
+
 interface UserBalance {
+  // EUR balances
+  funding_balance: number;
   main_balance: number;
   trading_balance: number;
-  litecoin_balance: number;
   bonus_balance: number;
+  challenges_balance: number;
+  balance_eur: number;
+  total_balance: number;
+  is_test_account: boolean;
+  // Crypto balances (from user_wallet_balances)
+  usd_balance: number;
   btc_balance: number;
   eth_balance: number;
-  usdt_balance: number;
+  ltc_balance: number;
   bnb_balance: number;
-  funding_balance: number;
-  is_test_account: boolean;
 }
 
 interface UserProfile {
@@ -180,15 +190,67 @@ export const AdminUsers = () => {
       }
 
       const userIds = profiles.map(p => p.id);
-      const { data: balances } = await supabase
+      
+      // Fetch EUR balances from user_balances
+      const { data: balances, error: balancesError } = await supabase
         .from('user_balances')
-        .select('*')
+        .select('user_id, funding_balance, trading_balance, bonus_balance, challenges_balance, total_balance, main_balance, balance_eur')
         .in('user_id', userIds);
 
-      const usersWithBalances = profiles.map(profile => ({
-        ...profile,
-        balances: balances?.find(b => b.user_id === profile.id) || null,
-      }));
+      if (balancesError) {
+        console.error('Balance fetch error:', balancesError);
+      }
+
+      // Fetch crypto balances from user_wallet_balances (PHASE 2)
+      const { data: cryptoBalances, error: cryptoError } = await supabase
+        .from('user_wallet_balances')
+        .select('user_id, usd_balance, btc_balance, eth_balance, ltc_balance, bnb_balance')
+        .in('user_id', userIds);
+
+      if (cryptoError) {
+        console.error('Crypto fetch error:', cryptoError);
+      }
+
+      // Create maps for quick lookup
+      const balanceMap = new Map();
+      if (balances) {
+        balances.forEach(b => {
+          balanceMap.set(b.user_id, b);
+        });
+      }
+
+      const cryptoMap = new Map();
+      if (cryptoBalances) {
+        cryptoBalances.forEach(c => {
+          cryptoMap.set(c.user_id, c);
+        });
+      }
+
+      const usersWithBalances = profiles.map(profile => {
+        const userBalance = balanceMap.get(profile.id);
+        const userCrypto = cryptoMap.get(profile.id);
+        
+        return {
+          ...profile,
+          balances: {
+            // EUR balances
+            funding_balance: userBalance ? toNumber(userBalance.funding_balance) : 0,
+            main_balance: userBalance ? toNumber(userBalance.main_balance) : 0,
+            trading_balance: userBalance ? toNumber(userBalance.trading_balance) : 0,
+            bonus_balance: userBalance ? toNumber(userBalance.bonus_balance) : 0,
+            challenges_balance: userBalance ? toNumber(userBalance.challenges_balance) : 0,
+            total_balance: userBalance ? toNumber(userBalance.total_balance) : 0,
+            balance_eur: userBalance ? toNumber(userBalance.balance_eur) : 0,
+            is_test_account: false,
+            // Crypto balances (from user_wallet_balances)
+            usd_balance: userCrypto ? toNumber(userCrypto.usd_balance) : 0,
+            btc_balance: userCrypto ? toNumber(userCrypto.btc_balance) : 0,
+            eth_balance: userCrypto ? toNumber(userCrypto.eth_balance) : 0,
+            ltc_balance: userCrypto ? toNumber(userCrypto.ltc_balance) : 0,
+            bnb_balance: userCrypto ? toNumber(userCrypto.bnb_balance) : 0,
+          },
+        };
+      });
 
       setUsers(usersWithBalances);
     } catch (error) {
@@ -220,8 +282,67 @@ export const AdminUsers = () => {
   };
 
   const handleViewUser = async (user: UserProfile) => {
+    // Fetch EUR balances
+    const { data: freshBalances, error: balancesError } = await supabase
+      .from('user_balances')
+      .select('funding_balance, main_balance, trading_balance, bonus_balance, challenges_balance, total_balance, balance_eur')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    // Fetch crypto balances
+    const { data: cryptoBalances, error: cryptoError } = await supabase
+      .from('user_wallet_balances')
+      .select('usd_balance, btc_balance, eth_balance, ltc_balance, bnb_balance')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    let balanceData = {
+      funding_balance: 0,
+      main_balance: 0,
+      trading_balance: 0,
+      bonus_balance: 0,
+      challenges_balance: 0,
+      total_balance: 0,
+      balance_eur: 0,
+      is_test_account: false,
+      usd_balance: 0,
+      btc_balance: 0,
+      eth_balance: 0,
+      ltc_balance: 0,
+      bnb_balance: 0,
+    };
+    
+    if (freshBalances) {
+      balanceData = {
+        ...balanceData,
+        funding_balance: toNumber(freshBalances.funding_balance),
+        main_balance: toNumber(freshBalances.main_balance),
+        trading_balance: toNumber(freshBalances.trading_balance),
+        bonus_balance: toNumber(freshBalances.bonus_balance),
+        challenges_balance: toNumber(freshBalances.challenges_balance),
+        total_balance: toNumber(freshBalances.total_balance),
+        balance_eur: toNumber(freshBalances.balance_eur),
+      };
+    }
+    
+    if (cryptoBalances) {
+      balanceData = {
+        ...balanceData,
+        usd_balance: toNumber(cryptoBalances.usd_balance),
+        btc_balance: toNumber(cryptoBalances.btc_balance),
+        eth_balance: toNumber(cryptoBalances.eth_balance),
+        ltc_balance: toNumber(cryptoBalances.ltc_balance),
+        bnb_balance: toNumber(cryptoBalances.bnb_balance),
+      };
+    }
+    
     const stats = await fetchUserStats(user.id);
-    setSelectedUser({ ...user, stats });
+    
+    setSelectedUser({ 
+      ...user, 
+      balances: balanceData,
+      stats 
+    });
     setDetailModalOpen(true);
   };
 
@@ -273,11 +394,11 @@ export const AdminUsers = () => {
       "Full Name",
       "Status",
       "Country",
-      "Main Balance",
-      "Trading Balance",
+      "Funding Balance (€)",
       "BTC Balance",
       "ETH Balance",
       "USDT Balance",
+      "Total Balance",
       "Created At",
     ];
     const rows = filteredUsers.map((user) => [
@@ -286,11 +407,11 @@ export const AdminUsers = () => {
       user.full_name || "",
       user.profile_status || "unverified",
       user.country || "",
-      user.balances?.main_balance || 0,
-      user.balances?.trading_balance || 0,
+      user.balances?.funding_balance || 0,
       user.balances?.btc_balance || 0,
       user.balances?.eth_balance || 0,
-      user.balances?.usdt_balance || 0,
+      user.balances?.usd_balance || 0,
+      user.balances?.total_balance || 0,
       user.created_at || "",
     ]);
 
@@ -310,17 +431,28 @@ export const AdminUsers = () => {
   };
 
   const getTotalBalance = (user: UserProfile) => {
-    if (!user.balances) return 0;
-    return (
-      (user.balances.main_balance || 0) +
-      (user.balances.trading_balance || 0) +
-      (user.balances.bonus_balance || 0)
-    );
+    return user.balances?.total_balance || 0;
+  };
+
+  const forceRefresh = async () => {
+    setLoading(true);
+    await fetchUsers();
+    toast({
+      title: "Refreshed",
+      description: "User data has been refreshed",
+    });
+  };
+
+  // Format crypto display
+  const formatCrypto = (value: number) => {
+    if (value === 0) return '0';
+    if (value < 0.000001) return value.toFixed(8);
+    if (value < 0.001) return value.toFixed(6);
+    return value.toFixed(4);
   };
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -332,9 +464,9 @@ export const AdminUsers = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={fetchUsers}>
+          <Button variant="outline" size="sm" onClick={forceRefresh}>
             <RefreshCw className="w-4 h-4 mr-2" />
-            Refresh
+            Force Refresh
           </Button>
           <Button variant="outline" size="sm" onClick={exportToCSV}>
             <Download className="w-4 h-4 mr-2" />
@@ -343,7 +475,6 @@ export const AdminUsers = () => {
         </div>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card className="bg-card border-border">
           <CardContent className="pt-4">
@@ -391,7 +522,6 @@ export const AdminUsers = () => {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="bg-card border-border">
         <CardContent className="pt-6">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -420,7 +550,6 @@ export const AdminUsers = () => {
         </CardContent>
       </Card>
 
-      {/* Users Table */}
       <Card className="bg-card border-border">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -429,8 +558,10 @@ export const AdminUsers = () => {
                 <TableRow className="border-border">
                   <TableHead>User</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Main Balance</TableHead>
-                  <TableHead>Trading Balance</TableHead>
+                  <TableHead>Funding (€)</TableHead>
+                  <TableHead>BTC</TableHead>
+                  <TableHead>ETH</TableHead>
+                  <TableHead>USDT</TableHead>
                   <TableHead>Total Balance</TableHead>
                   <TableHead>Joined</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -440,7 +571,7 @@ export const AdminUsers = () => {
                 {loading ? (
                   [...Array(5)].map((_, i) => (
                     <TableRow key={i}>
-                      {[...Array(7)].map((_, j) => (
+                      {[...Array(9)].map((_, j) => (
                         <TableCell key={j}>
                           <div className="h-4 bg-muted animate-pulse rounded" />
                         </TableCell>
@@ -449,7 +580,7 @@ export const AdminUsers = () => {
                   ))
                 ) : filteredUsers.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                       No users found
                     </TableCell>
                   </TableRow>
@@ -469,26 +600,25 @@ export const AdminUsers = () => {
                           <code className="text-xs text-muted-foreground mt-0.5">
                             {user.id.slice(0, 8)}...
                           </code>
-                          {user.balances?.is_test_account && (
-                            <Badge variant="outline" className="w-fit mt-1 text-xs text-gold border-gold/30">
-                              Test Account
-                            </Badge>
-                          )}
                         </div>
                       </TableCell>
                       <TableCell>{getStatusBadge(user.profile_status)}</TableCell>
                       <TableCell>
-                        <span className="font-mono">
-                          €{(user.balances?.main_balance || 0).toLocaleString()}
+                        <span className="font-mono font-medium text-gold">
+                          €{(user.balances?.funding_balance || 0).toLocaleString()}
                         </span>
                       </TableCell>
-                      <TableCell>
-                        <span className="font-mono">
-                          €{(user.balances?.trading_balance || 0).toLocaleString()}
-                        </span>
+                      <TableCell className="font-mono text-orange-500">
+                        {formatCrypto(user.balances?.btc_balance || 0)}
+                      </TableCell>
+                      <TableCell className="font-mono text-blue-400">
+                        {formatCrypto(user.balances?.eth_balance || 0)}
+                      </TableCell>
+                      <TableCell className="font-mono text-green-400">
+                        €{(user.balances?.usd_balance || 0).toLocaleString()}
                       </TableCell>
                       <TableCell>
-                        <span className="font-mono font-medium text-secondary">
+                        <span className="font-mono font-bold text-emerald-500">
                           €{getTotalBalance(user).toLocaleString()}
                         </span>
                       </TableCell>
@@ -533,7 +663,6 @@ export const AdminUsers = () => {
             </Table>
           </div>
 
-          {/* Pagination */}
           {totalPages > 1 && (
             <div className="flex items-center justify-between px-4 py-3 border-t border-border">
               <p className="text-sm text-muted-foreground">
@@ -568,7 +697,7 @@ export const AdminUsers = () => {
         </CardContent>
       </Card>
 
-      {/* User Detail Modal */}
+      {/* User Detail Modal with Crypto */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -619,62 +748,86 @@ export const AdminUsers = () => {
                 </div>
               </div>
 
-              {/* Balances */}
+              {/* EUR Balances */}
               <div>
                 <h3 className="font-semibold mb-3 flex items-center gap-2">
                   <TrendingUp className="w-4 h-4 text-secondary" />
-                  Account Balances
+                  EUR Balances
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Main Balance</p>
-                    <p className="text-lg font-bold">
-                      €{(selectedUser.balances?.main_balance || 0).toLocaleString()}
+                    <p className="text-xs text-muted-foreground">Funding (Cash)</p>
+                    <p className="text-lg font-bold text-gold">
+                      €{(selectedUser.balances?.funding_balance || 0).toLocaleString()}
                     </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Trading Balance</p>
+                    <p className="text-xs text-muted-foreground">Trading (Active)</p>
                     <p className="text-lg font-bold">
                       €{(selectedUser.balances?.trading_balance || 0).toLocaleString()}
                     </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">Bonus Balance</p>
+                    <p className="text-xs text-muted-foreground">Bonus</p>
                     <p className="text-lg font-bold">
                       €{(selectedUser.balances?.bonus_balance || 0).toLocaleString()}
                     </p>
                   </div>
                   <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">BTC Balance</p>
+                    <p className="text-xs text-muted-foreground">Challenges</p>
                     <p className="text-lg font-bold">
-                      {(selectedUser.balances?.btc_balance || 0).toFixed(8)}
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">ETH Balance</p>
-                    <p className="text-lg font-bold">
-                      {(selectedUser.balances?.eth_balance || 0).toFixed(8)}
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">USDT Balance</p>
-                    <p className="text-lg font-bold">
-                      {(selectedUser.balances?.usdt_balance || 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">LTC Balance</p>
-                    <p className="text-lg font-bold">
-                      {(selectedUser.balances?.litecoin_balance || 0).toFixed(8)}
-                    </p>
-                  </div>
-                  <div className="bg-muted/50 p-3 rounded-lg">
-                    <p className="text-xs text-muted-foreground">BNB Balance</p>
-                    <p className="text-lg font-bold">
-                      {(selectedUser.balances?.bnb_balance || 0).toFixed(8)}
+                      €{(selectedUser.balances?.challenges_balance || 0).toLocaleString()}
                     </p>
                   </div>
                 </div>
+              </div>
+
+              {/* Crypto Balances (Phase 2) */}
+              <div>
+                <h3 className="font-semibold mb-3 flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-secondary" />
+                  Crypto Balances
+                </h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">USDT (€)</p>
+                    <p className="text-lg font-bold text-green-400">
+                      €{(selectedUser.balances?.usd_balance || 0).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">BTC</p>
+                    <p className="text-lg font-bold text-orange-500">
+                      {formatCrypto(selectedUser.balances?.btc_balance || 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">ETH</p>
+                    <p className="text-lg font-bold text-blue-400">
+                      {formatCrypto(selectedUser.balances?.eth_balance || 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">LTC</p>
+                    <p className="text-lg font-bold text-gray-400">
+                      {formatCrypto(selectedUser.balances?.ltc_balance || 0)}
+                    </p>
+                  </div>
+                  <div className="bg-muted/50 p-3 rounded-lg">
+                    <p className="text-xs text-muted-foreground">BNB</p>
+                    <p className="text-lg font-bold text-yellow-500">
+                      {formatCrypto(selectedUser.balances?.bnb_balance || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Total Balance */}
+              <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">
+                <p className="text-sm text-muted-foreground">Total Balance (EUR + Crypto)</p>
+                <p className="text-2xl font-bold text-emerald-500">
+                  €{getTotalBalance(selectedUser).toLocaleString()}
+                </p>
               </div>
 
               {/* Trading Stats */}
