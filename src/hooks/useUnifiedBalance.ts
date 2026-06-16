@@ -1,4 +1,4 @@
-// src/hooks/useUnifiedBalance.ts - COMPLETE UPDATED VERSION
+// src/hooks/useUnifiedBalance.ts - COMPLETE FIXED VERSION
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { RealtimeChannel } from "@supabase/supabase-js";
@@ -14,28 +14,28 @@ export interface CryptoPrice {
 export interface UnifiedBalance {
   id: string;
   user_id: string;
-  // Crypto Balances (original database names)
+  // Crypto Balances (from user_wallet_balances)
   balance_usdt: number;
-  balance_eur: number;
   balance_btc: number;
   balance_eth: number;
   balance_ltc: number;
   balance_bnb: number;
-  // Crypto Balances (display names for component)
+  // Display crypto balances (for component)
   btc_balance: number;
   eth_balance: number;
   usdt_balance: number;
   ltc_balance: number;
   bnb_balance: number;
   litecoin_balance: number;
-  // Fiat Balances
+  // Fiat Balances (from user_balances)
   funding_balance: number;
   trading_balance: number;
   bonus_balance: number;
   challenges_balance: number;
   // Legacy
   main_balance: number;
-  // Trading Stats (NEW)
+  balance_eur: number;
+  // Trading Stats
   today_pnl: number;
   total_profit: number;
   is_test_account: boolean;
@@ -70,16 +70,16 @@ const getColumnName = (type: string): string => {
     'bonus_balance': 'bonus_balance',
     'challenges': 'challenges_balance',
     'challenges_balance': 'challenges_balance',
-    'usdt': 'balance_usdt',
-    'balance_usdt': 'balance_usdt',
-    'btc': 'balance_btc',
-    'balance_btc': 'balance_btc',
-    'eth': 'balance_eth',
-    'balance_eth': 'balance_eth',
-    'ltc': 'balance_ltc',
-    'balance_ltc': 'balance_ltc',
-    'bnb': 'balance_bnb',
-    'balance_bnb': 'balance_bnb',
+    'usdt': 'usd_balance',
+    'balance_usdt': 'usd_balance',
+    'btc': 'btc_balance',
+    'balance_btc': 'btc_balance',
+    'eth': 'eth_balance',
+    'balance_eth': 'eth_balance',
+    'ltc': 'ltc_balance',
+    'balance_ltc': 'ltc_balance',
+    'bnb': 'bnb_balance',
+    'balance_bnb': 'bnb_balance',
   };
   return typeMap[type.toLowerCase()] || type;
 };
@@ -110,18 +110,29 @@ export const useUnifiedBalance = (userId: string | null) => {
 
     console.log('[Balance] Fetching for user:', userId);
 
-    // Fetch main balance data
-    const { data, error } = await supabase
+    // 1. Fetch EUR balances from user_balances
+    const { data: eurData, error: eurError } = await supabase
       .from('user_balances')
       .select('*')
       .eq('user_id', userId)
       .maybeSingle();
 
-    if (error) {
-      console.error('[Balance] Fetch error:', error);
+    if (eurError) {
+      console.error('[Balance] EUR fetch error:', eurError);
     }
 
-    // Fetch today's P&L
+    // 2. Fetch CRYPTO balances from user_wallet_balances
+    const { data: cryptoData, error: cryptoError } = await supabase
+      .from('user_wallet_balances')
+      .select('*')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (cryptoError) {
+      console.error('[Balance] Crypto fetch error:', cryptoError);
+    }
+
+    // 3. Fetch today's P&L
     const { data: todayProfit, error: todayError } = await supabase
       .rpc('get_user_today_profit', { user_id_param: userId });
 
@@ -129,7 +140,7 @@ export const useUnifiedBalance = (userId: string | null) => {
       console.error('[Balance] Today P&L fetch error:', todayError);
     }
 
-    // Fetch total profit
+    // 4. Fetch total profit
     const { data: totalProfit, error: totalError } = await supabase
       .rpc('get_user_total_profit', { user_id_param: userId });
 
@@ -137,50 +148,51 @@ export const useUnifiedBalance = (userId: string | null) => {
       console.error('[Balance] Total profit fetch error:', totalError);
     }
 
-    if (data) {
-      const balanceData = data as any;
-      setBalance({
-        id: balanceData.id,
-        user_id: balanceData.user_id,
-        // Original crypto balances
-        balance_usdt: balanceData.balance_usdt || 0,
-        balance_eur: balanceData.balance_eur || 0,
-        balance_btc: balanceData.balance_btc || 0,
-        balance_eth: balanceData.balance_eth || 0,
-        balance_ltc: balanceData.balance_ltc || 0,
-        balance_bnb: balanceData.balance_bnb || 0,
-        // Display crypto balances
-        btc_balance: balanceData.balance_btc || 0,
-        eth_balance: balanceData.balance_eth || 0,
-        usdt_balance: balanceData.balance_usdt || 0,
-        ltc_balance: balanceData.balance_ltc || 0,
-        bnb_balance: balanceData.balance_bnb || 0,
-        litecoin_balance: balanceData.balance_ltc || 0,
-        // Fiat balances
-        funding_balance: balanceData.funding_balance || 0,
-        trading_balance: balanceData.trading_balance || 0,
-        bonus_balance: balanceData.bonus_balance || 0,
-        challenges_balance: balanceData.challenges_balance || 0,
-        main_balance: balanceData.funding_balance || balanceData.main_balance || 0,
-        // Trading stats
-        today_pnl: todayProfit || 0,
-        total_profit: totalProfit || 0,
-        is_test_account: balanceData.is_test_account || false,
-        created_at: balanceData.created_at,
-        updated_at: balanceData.updated_at,
-      });
-      console.log('[Balance] ✅ Funding Balance (Main):', balanceData.funding_balance);
-      console.log('[Balance] ✅ BTC Balance:', balanceData.balance_btc);
-      console.log('[Balance] ✅ Today P&L:', todayProfit);
-      console.log('[Balance] ✅ Total Profit:', totalProfit);
-    } else {
-      console.log('[Balance] ❌ No record found');
-    }
-    
+    // 5. Combine data from both sources
+    const eurBalances = eurData || {};
+    const cryptoBalances = cryptoData || {};
+
+    const combinedBalance: UnifiedBalance = {
+      id: eurBalances.id || cryptoBalances.id || '',
+      user_id: userId,
+      // Crypto balances from user_wallet_balances
+      balance_usdt: cryptoBalances.usd_balance || 0,
+      balance_btc: cryptoBalances.btc_balance || 0,
+      balance_eth: cryptoBalances.eth_balance || 0,
+      balance_ltc: cryptoBalances.ltc_balance || 0,
+      balance_bnb: cryptoBalances.bnb_balance || 0,
+      // Display crypto balances
+      btc_balance: cryptoBalances.btc_balance || 0,
+      eth_balance: cryptoBalances.eth_balance || 0,
+      usdt_balance: cryptoBalances.usd_balance || 0,
+      ltc_balance: cryptoBalances.ltc_balance || 0,
+      bnb_balance: cryptoBalances.bnb_balance || 0,
+      litecoin_balance: cryptoBalances.ltc_balance || 0,
+      // Fiat balances from user_balances
+      funding_balance: eurBalances.funding_balance || 0,
+      trading_balance: eurBalances.trading_balance || 0,
+      bonus_balance: eurBalances.bonus_balance || 0,
+      challenges_balance: eurBalances.challenges_balance || 0,
+      main_balance: eurBalances.funding_balance || 0,
+      balance_eur: eurBalances.balance_eur || 0,
+      // Trading stats
+      today_pnl: todayProfit || 0,
+      total_profit: totalProfit || 0,
+      is_test_account: eurBalances.is_test_account || false,
+      created_at: eurBalances.created_at || cryptoBalances.last_updated || new Date().toISOString(),
+      updated_at: eurBalances.updated_at || cryptoBalances.last_updated || new Date().toISOString(),
+    };
+
+    console.log('[Balance] ✅ Funding Balance (Main):', combinedBalance.funding_balance);
+    console.log('[Balance] ✅ BTC Balance:', combinedBalance.btc_balance);
+    console.log('[Balance] ✅ ETH Balance:', combinedBalance.eth_balance);
+    console.log('[Balance] ✅ Today P&L:', combinedBalance.today_pnl);
+    console.log('[Balance] ✅ Total Profit:', combinedBalance.total_profit);
+
+    setBalance(combinedBalance);
     setLoading(false);
   }, [userId]);
 
-  // Add refreshBalance method
   const refreshBalance = useCallback(async () => {
     setLoading(true);
     await fetchBalance();
@@ -201,7 +213,7 @@ export const useUnifiedBalance = (userId: string | null) => {
   useEffect(() => {
     if (!balance) return;
 
-    const usdtPrice = cryptoPrices.find(p => p.symbol === 'USDT')?.price_eur || 0.92;
+    const usdtPrice = cryptoPrices.find(p => p.symbol === 'USDT')?.price_eur || 1;
     const btcPrice = cryptoPrices.find(p => p.symbol === 'BTC')?.price_eur || 85000;
     const ethPrice = cryptoPrices.find(p => p.symbol === 'ETH')?.price_eur || 2800;
     const ltcPrice = cryptoPrices.find(p => p.symbol === 'LTC')?.price_eur || 95;
@@ -245,6 +257,7 @@ export const useUnifiedBalance = (userId: string | null) => {
 
     if (!userId) return;
 
+    // Subscribe to user_balances changes
     const balanceChannel: RealtimeChannel = supabase
       .channel(`unified_balances:${userId}`)
       .on(
@@ -255,24 +268,27 @@ export const useUnifiedBalance = (userId: string | null) => {
           table: 'user_balances',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
-          console.log('[Balance] Real-time update received');
-          if (payload.eventType === 'UPDATE' || payload.eventType === 'INSERT') {
-            const newData = payload.new as any;
-            setBalance(prev => prev ? {
-              ...prev,
-              funding_balance: newData.funding_balance ?? prev.funding_balance,
-              balance_usdt: newData.balance_usdt ?? prev.balance_usdt,
-              balance_btc: newData.balance_btc ?? prev.balance_btc,
-              balance_eth: newData.balance_eth ?? prev.balance_eth,
-              balance_ltc: newData.balance_ltc ?? prev.balance_ltc,
-              balance_bnb: newData.balance_bnb ?? prev.balance_bnb,
-              trading_balance: newData.trading_balance ?? prev.trading_balance,
-              bonus_balance: newData.bonus_balance ?? prev.bonus_balance,
-              challenges_balance: newData.challenges_balance ?? prev.challenges_balance,
-              updated_at: newData.updated_at,
-            } : null);
-          }
+        () => {
+          console.log('[Balance] EUR balance update received');
+          fetchBalance();
+        }
+      )
+      .subscribe();
+
+    // Subscribe to user_wallet_balances changes
+    const walletChannel: RealtimeChannel = supabase
+      .channel(`wallet_balances:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_wallet_balances',
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          console.log('[Balance] Crypto balance update received');
+          fetchBalance();
         }
       )
       .subscribe();
@@ -296,6 +312,7 @@ export const useUnifiedBalance = (userId: string | null) => {
 
     return () => {
       supabase.removeChannel(balanceChannel);
+      supabase.removeChannel(walletChannel);
       supabase.removeChannel(pricesChannel);
       clearInterval(priceInterval);
     };
@@ -359,18 +376,28 @@ export const useUnifiedBalance = (userId: string | null) => {
     const toColumn = getColumnName(toType);
 
     try {
-      const { data: currentBalance, error: fetchError } = await supabase
-        .from('user_balances')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-      if (fetchError) {
-        console.error('[Transfer] Fetch error:', fetchError);
-        return false;
+      // Check if we're transferring crypto or fiat
+      const isCrypto = ['btc_balance', 'eth_balance', 'usd_balance', 'ltc_balance', 'bnb_balance'].includes(fromColumn);
+      
+      let currentBalanceData;
+      
+      if (isCrypto) {
+        const { data } = await supabase
+          .from('user_wallet_balances')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        currentBalanceData = data;
+      } else {
+        const { data } = await supabase
+          .from('user_balances')
+          .select('*')
+          .eq('user_id', userId)
+          .single();
+        currentBalanceData = data;
       }
 
-      const currentFromBalance = currentBalance[fromColumn] || 0;
+      const currentFromBalance = currentBalanceData?.[fromColumn] || 0;
       
       if (currentFromBalance < amount) {
         console.error('[Transfer] Insufficient balance');
@@ -391,11 +418,13 @@ export const useUnifiedBalance = (userId: string | null) => {
 
       const updates: Record<string, number | string> = {};
       updates[fromColumn] = currentFromBalance - fromAmount;
-      updates[toColumn] = (currentBalance[toColumn] || 0) + toAmount;
+      updates[toColumn] = (currentBalanceData?.[toColumn] || 0) + toAmount;
       updates.updated_at = new Date().toISOString();
 
+      // Update appropriate table
+      const tableName = isCrypto ? 'user_wallet_balances' : 'user_balances';
       const { error: updateError } = await supabase
-        .from('user_balances')
+        .from(tableName)
         .update(updates)
         .eq('user_id', userId);
 
@@ -419,7 +448,7 @@ export const useUnifiedBalance = (userId: string | null) => {
         });
 
       console.log('[Transfer] ✅ Transfer successful!');
-      await refreshBalance(); // Refresh after transfer
+      await refreshBalance();
       return true;
     } catch (error) {
       console.error('[Transfer] Unexpected error:', error);
@@ -440,11 +469,11 @@ export const useUnifiedBalance = (userId: string | null) => {
     }
 
     try {
-      const fromColumn = `balance_${fromCrypto.toLowerCase()}`;
-      const toColumn = `balance_${toCrypto.toLowerCase()}`;
+      const fromColumn = `${fromCrypto.toLowerCase()}_balance`;
+      const toColumn = `${toCrypto.toLowerCase()}_balance`;
 
       const { data: currentBalance, error: fetchError } = await supabase
-        .from('user_balances')
+        .from('user_wallet_balances')
         .select('*')
         .eq('user_id', userId)
         .single();
@@ -454,7 +483,7 @@ export const useUnifiedBalance = (userId: string | null) => {
         return false;
       }
 
-      const currentFromBalance = currentBalance[fromColumn] || 0;
+      const currentFromBalance = currentBalance?.[fromColumn] || 0;
       
       if (currentFromBalance < amount) {
         console.error('[Swap] Insufficient balance');
@@ -467,11 +496,11 @@ export const useUnifiedBalance = (userId: string | null) => {
 
       const updates: Record<string, number | string> = {};
       updates[fromColumn] = currentFromBalance - amount;
-      updates[toColumn] = (currentBalance[toColumn] || 0) + receivedAmount;
-      updates.updated_at = new Date().toISOString();
+      updates[toColumn] = (currentBalance?.[toColumn] || 0) + receivedAmount;
+      updates.last_updated = new Date().toISOString();
 
       const { error: updateError } = await supabase
-        .from('user_balances')
+        .from('user_wallet_balances')
         .update(updates)
         .eq('user_id', userId);
 
@@ -481,7 +510,7 @@ export const useUnifiedBalance = (userId: string | null) => {
       }
 
       console.log('[Swap] ✅ Swap successful!');
-      await refreshBalance(); // Refresh after swap
+      await refreshBalance();
       return true;
     } catch (error) {
       console.error('[Swap] Unexpected error:', error);
@@ -495,7 +524,7 @@ export const useUnifiedBalance = (userId: string | null) => {
     totals,
     loading,
     refetch: fetchBalance,
-    refreshBalance, // Added this method
+    refreshBalance,
     transferBalance,
     swapCrypto,
     getBalanceByType,
