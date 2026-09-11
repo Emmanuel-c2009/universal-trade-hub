@@ -4,6 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = "https://xnnhoqvtooyipjvyfvms.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhubmhvcXZ0b295aXBqdnlmdm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NzM2NTQsImV4cCI6MjA3OTM0OTY1NH0.D6s8mFF5y1P7xPsfD030lgFAEMKJKfo0mC7laDbzmsg";
 
+// ✅ Bypass the browser lock that causes tab-switch freezes
+const noOpLock = async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
+  return await fn();
+};
+
 // ✅ Main Supabase client (without Database type)
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
@@ -12,6 +17,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     autoRefreshToken: false,
     detectSessionInUrl: false,
     flowType: 'pkce',
+    lock: noOpLock,
   },
 });
 
@@ -36,6 +42,7 @@ export const supabaseStatic = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KE
     detectSessionInUrl: false,
     flowType: 'pkce',
     storageKey: 'sb-static-auth-token',
+    lock: noOpLock,
   },
 });
 
