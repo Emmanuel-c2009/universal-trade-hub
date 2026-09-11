@@ -1,80 +1,78 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Universal Stock Trade - EU Proprietary Trading Firm | Get Funded €200K</title>
-    <meta name="description" content="EU-regulated prop trading firm offering up to €200,000 funding with <24h payouts, 90% profit split, and professional trader support. Start your challenge today." />
-    <meta name="author" content="Universal Stock Trade" />
-    <meta name="keywords" content="prop trading, proprietary trading, funded trading account, forex trading, crypto trading, EU trading firm, day trading, trader funding" />
+<!-- TEMPORARY DEBUG OVERLAY - remove once freeze bug is fixed -->
+<script>
+  (function () {
+    const box = document.createElement('div');
+    box.id = 'debug-overlay';
+    box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:black;color:#0f0;font-size:10px;font-family:monospace;padding:8px;z-index:999999;white-space:pre-wrap;';
+    document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
 
-    <!-- Open Graph Meta Tags -->
-    <meta property="og:title" content="Universal Stock Trade - Get Funded Up To €200K" />
-    <meta property="og:description" content="EU-regulated proprietary trading firm with lightning-fast payouts and up to 90% profit split. Join thousands of funded traders." />
-    <meta property="og:type" content="website" />
-    <!-- TODO: replace with your own hosted image -->
-    <!-- <meta property="og:image" content="" /> -->
+    function log(msg, color) {
+      const line = document.createElement('div');
+      line.style.color = color || '#0f0';
+      line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+      box.appendChild(line);
+      box.scrollTop = box.scrollHeight;
+    }
 
-    <!-- Twitter Card Meta Tags -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@UniversalStockTrade" />
-    <!-- TODO: replace with your own hosted image -->
-    <!-- <meta name="twitter:image" content="" /> -->
+    window.addEventListener('error', (e) => {
+      log('ERROR: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')', 'red');
+    });
 
-    <!-- Canonical URL -->
-    <link rel="canonical" href="https://universalstocktrade.eu" />
+    window.addEventListener('unhandledrejection', (e) => {
+      log('UNHANDLED PROMISE: ' + (e.reason?.message || e.reason), 'orange');
+    });
 
-    <!-- TEMPORARY DEBUG OVERLAY - remove once freeze bug is fixed -->
-    <script>
-      (function () {
-        const box = document.createElement('div');
-        box.id = 'debug-overlay';
-        box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:black;color:#0f0;font-size:11px;font-family:monospace;padding:8px;z-index:999999;white-space:pre-wrap;';
-        document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+    document.addEventListener('visibilitychange', () => {
+      log('visibility changed to: ' + document.visibilityState, 'cyan');
+    });
 
-        function log(msg, color) {
-          const line = document.createElement('div');
-          line.style.color = color || '#0f0';
-          line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
-          box.appendChild(line);
-        }
+    const origError = console.error;
+    console.error = function (...args) {
+      log('console.error: ' + args.join(' '), 'red');
+      origError.apply(console, args);
+    };
 
-        window.addEventListener('error', (e) => {
-          log('ERROR: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')', 'red');
+    // Track every fetch request: start, finish, and flag if it hangs
+    const origFetch = window.fetch;
+    let reqId = 0;
+    window.fetch = function (...args) {
+      const id = ++reqId;
+      const url = typeof args[0] === 'string' ? args[0] : (args[0]?.url || 'unknown');
+      const shortUrl = url.replace(/^https?:\/\//, '').slice(0, 60);
+      const start = Date.now();
+      log('#' + id + ' FETCH START: ' + shortUrl, 'yellow');
+
+      const hangWarn = setTimeout(() => {
+        log('#' + id + ' STILL PENDING after 8s: ' + shortUrl, 'red');
+      }, 8000);
+
+      return origFetch.apply(this, args)
+        .then((res) => {
+          clearTimeout(hangWarn);
+          log('#' + id + ' FETCH DONE (' + res.status + ') in ' + (Date.now() - start) + 'ms: ' + shortUrl, 'lime');
+          return res;
+        })
+        .catch((err) => {
+          clearTimeout(hangWarn);
+          log('#' + id + ' FETCH FAILED: ' + shortUrl + ' — ' + err.message, 'red');
+          throw err;
         });
+    };
 
-        window.addEventListener('unhandledrejection', (e) => {
-          log('UNHANDLED PROMISE: ' + (e.reason?.message || e.reason), 'orange');
-        });
+    // Track WebSocket connections (Supabase realtime uses these)
+    const OrigWS = window.WebSocket;
+    window.WebSocket = function (...args) {
+      const url = args[0];
+      const shortUrl = String(url).slice(0, 60);
+      log('WEBSOCKET OPEN attempt: ' + shortUrl, 'magenta');
+      const ws = new OrigWS(...args);
+      ws.addEventListener('open', () => log('WEBSOCKET connected: ' + shortUrl, 'lime'));
+      ws.addEventListener('close', (e) => log('WEBSOCKET closed (code ' + e.code + '): ' + shortUrl, 'orange'));
+      ws.addEventListener('error', () => log('WEBSOCKET error: ' + shortUrl, 'red'));
+      return ws;
+    };
+    window.WebSocket.prototype = OrigWS.prototype;
 
-        document.addEventListener('visibilitychange', () => {
-          log('visibility changed to: ' + document.visibilityState, 'cyan');
-        });
-
-        const origError = console.error;
-        console.error = function (...args) {
-          log('console.error: ' + args.join(' '), 'red');
-          origError.apply(console, args);
-        };
-
-        log('Debug overlay active');
-      })();
-    </script>
-  </head>
-
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <script type="text/javascript">
-      function googleTranslateElementInit() {
-        new google.translate.TranslateElement({
-          pageLanguage: 'en',
-          includedLanguages: 'en,de,fr,es,it,pt,nl,pl,cs,ro,hu,el,sv,da,fi,no,bg,hr,sk,sl',
-          layout: google.translate.TranslateElement.InlineLayout.SIMPLE,
-          autoDisplay: false
-        }, 'google_translate_element');
-      }
-    </script>
-    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-  </body>
-</html>
+    log('Debug overlay active (fetch + websocket tracking on)');
+  })();
+</script>
