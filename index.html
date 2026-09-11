@@ -12,15 +12,54 @@
     <meta property="og:title" content="Universal Stock Trade - Get Funded Up To €200K" />
     <meta property="og:description" content="EU-regulated proprietary trading firm with lightning-fast payouts and up to 90% profit split. Join thousands of funded traders." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <!-- TODO: replace with your own hosted image -->
+    <!-- <meta property="og:image" content="" /> -->
 
     <!-- Twitter Card Meta Tags -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@UniversalStockTrade" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <!-- TODO: replace with your own hosted image -->
+    <!-- <meta name="twitter:image" content="" /> -->
 
     <!-- Canonical URL -->
     <link rel="canonical" href="https://universalstocktrade.eu" />
+
+    <!-- TEMPORARY DEBUG OVERLAY - remove once freeze bug is fixed -->
+    <script>
+      (function () {
+        const box = document.createElement('div');
+        box.id = 'debug-overlay';
+        box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:40vh;overflow-y:auto;background:black;color:#0f0;font-size:11px;font-family:monospace;padding:8px;z-index:999999;white-space:pre-wrap;';
+        document.addEventListener('DOMContentLoaded', () => document.body.appendChild(box));
+
+        function log(msg, color) {
+          const line = document.createElement('div');
+          line.style.color = color || '#0f0';
+          line.textContent = new Date().toLocaleTimeString() + ' — ' + msg;
+          box.appendChild(line);
+        }
+
+        window.addEventListener('error', (e) => {
+          log('ERROR: ' + e.message + ' (' + e.filename + ':' + e.lineno + ')', 'red');
+        });
+
+        window.addEventListener('unhandledrejection', (e) => {
+          log('UNHANDLED PROMISE: ' + (e.reason?.message || e.reason), 'orange');
+        });
+
+        document.addEventListener('visibilitychange', () => {
+          log('visibility changed to: ' + document.visibilityState, 'cyan');
+        });
+
+        const origError = console.error;
+        console.error = function (...args) {
+          log('console.error: ' + args.join(' '), 'red');
+          origError.apply(console, args);
+        };
+
+        log('Debug overlay active');
+      })();
+    </script>
   </head>
 
   <body>
