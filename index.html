@@ -27,6 +27,10 @@
     <!-- TEMPORARY DEBUG OVERLAY - remove once freeze bug is fixed -->
     <script>
       (function () {
+        // Guard: never install the overlay twice
+        if (window.__debugOverlayInstalled) return;
+        window.__debugOverlayInstalled = true;
+
         const box = document.createElement('div');
         box.id = 'debug-overlay';
         box.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:45vh;overflow-y:auto;background:black;color:#0f0;font-size:10px;font-family:monospace;padding:8px;z-index:999999;white-space:pre-wrap;';
@@ -50,6 +54,10 @@
 
         document.addEventListener('visibilitychange', () => {
           log('visibility changed to: ' + document.visibilityState, 'cyan');
+        });
+
+        window.addEventListener('pagehide', () => {
+          log('pagehide fired (tab closing / navigating away)', 'cyan');
         });
 
         const origError = console.error;
@@ -100,6 +108,13 @@
         window.WebSocket.prototype = OrigWS.prototype;
 
         log('Debug overlay active (fetch + websocket tracking on)');
+
+        // Heartbeat: if this stops ticking, JS has locked up entirely
+        let heartbeatCount = 0;
+        setInterval(() => {
+          heartbeatCount++;
+          log('💓 heartbeat #' + heartbeatCount, '#888');
+        }, 2000);
       })();
     </script>
   </head>
