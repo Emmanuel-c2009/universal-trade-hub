@@ -257,9 +257,9 @@ export const useUnifiedBalance = (userId: string | null) => {
 
     if (!userId) return;
 
-    // Subscribe to user_balances changes
-    const balanceChannel: RealtimeChannel = supabase
-      .channel(`unified_balances:${userId}`)
+    // ONE channel, uniquely named per user, with all three listeners attached
+    const channel: RealtimeChannel = supabase
+      .channel(`unified_dashboard:${userId}`)
       .on(
         'postgres_changes',
         {
@@ -273,11 +273,6 @@ export const useUnifiedBalance = (userId: string | null) => {
           fetchBalance();
         }
       )
-      .subscribe();
-
-    // Subscribe to user_wallet_balances changes
-    const walletChannel: RealtimeChannel = supabase
-      .channel(`wallet_balances:${userId}`)
       .on(
         'postgres_changes',
         {
@@ -291,10 +286,6 @@ export const useUnifiedBalance = (userId: string | null) => {
           fetchBalance();
         }
       )
-      .subscribe();
-
-    const pricesChannel: RealtimeChannel = supabase
-      .channel('crypto_prices_updates')
       .on(
         'postgres_changes',
         {
@@ -311,9 +302,7 @@ export const useUnifiedBalance = (userId: string | null) => {
     const priceInterval = setInterval(fetchCryptoPrices, 30000);
 
     return () => {
-      supabase.removeChannel(balanceChannel);
-      supabase.removeChannel(walletChannel);
-      supabase.removeChannel(pricesChannel);
+      supabase.removeChannel(channel);
       clearInterval(priceInterval);
     };
   }, [userId, fetchBalance, fetchCryptoPrices]);
