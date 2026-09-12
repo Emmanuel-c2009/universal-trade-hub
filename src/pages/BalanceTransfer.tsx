@@ -63,11 +63,17 @@ const BalanceTransfer = () => {
   const { balance, totals, cryptoPrices, transferBalance, getBalanceByType } = useUnifiedBalance(session?.user?.id);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { navigate("/auth"); return; }
-      setSession(session);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        if (!session) { navigate("/auth"); return; }
+        setSession(session);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Session check failed:", err);
+        setLoading(false);   // always clear the spinner, even on failure
+        navigate("/auth");   // send them to login rather than leaving them stuck
+      });
   }, [navigate]);
 
   const fetchHistory = async (page: number = 1) => {
