@@ -4,9 +4,18 @@ import { createClient } from '@supabase/supabase-js';
 const SUPABASE_URL = "https://xnnhoqvtooyipjvyfvms.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhubmhvcXZ0b295aXBqdnlmdm1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3NzM2NTQsImV4cCI6MjA3OTM0OTY1NH0.D6s8mFF5y1P7xPsfD030lgFAEMKJKfo0mC7laDbzmsg";
 
-// ✅ Bypass the browser lock that causes tab-switch freezes
 const noOpLock = async (name: string, acquireTimeout: number, fn: () => Promise<any>) => {
   return await fn();
+};
+
+// ✅ Fetch wrapper that gives up after 10 seconds instead of hanging forever
+const fetchWithTimeout = (input: RequestInfo | URL, init?: RequestInit) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+  return fetch(input, { ...init, signal: controller.signal }).finally(() => {
+    clearTimeout(timeoutId);
+  });
 };
 
 // ✅ Main Supabase client (without Database type)
@@ -18,6 +27,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
     detectSessionInUrl: false,
     flowType: 'pkce',
     lock: noOpLock,
+  },
+  global: {
+    fetch: fetchWithTimeout,
   },
 });
 
@@ -43,6 +55,9 @@ export const supabaseStatic = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KE
     flowType: 'pkce',
     storageKey: 'sb-static-auth-token',
     lock: noOpLock,
+  },
+  global: {
+    fetch: fetchWithTimeout,
   },
 });
 
