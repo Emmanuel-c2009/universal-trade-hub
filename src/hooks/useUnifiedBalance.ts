@@ -229,7 +229,6 @@ export const useUnifiedBalance = (userId: string | null) => {
     });
   }, [balance, cryptoPrices]);
 
-  // Fetch initial data + ONE consolidated realtime channel
   useEffect(() => {
     fetchBalance();
     fetchCryptoPrices();
@@ -317,7 +316,6 @@ export const useUnifiedBalance = (userId: string | null) => {
     }
   };
 
-  // ---- transferBalance: now protected with timeouts, cannot hang forever ----
   const transferBalance = async (
     fromType: string,
     toType: string,
@@ -391,7 +389,16 @@ export const useUnifiedBalance = (userId: string | null) => {
       );
 
       if (updateError) {
-        console.error('[Transfer] Update error:', updateError);
+        // Log full error detail instead of [object Object] so we can see the real cause
+        console.error(
+          '[Transfer] Update error:',
+          'message:', updateError.message,
+          '| details:', updateError.details,
+          '| hint:', updateError.hint,
+          '| code:', updateError.code,
+          '| table:', tableName,
+          '| updates:', JSON.stringify(updates)
+        );
         return false;
       }
 
@@ -414,9 +421,9 @@ export const useUnifiedBalance = (userId: string | null) => {
       console.log('[Transfer] ✅ Transfer successful!');
       await refreshBalance();
       return true;
-    } catch (error) {
-      console.error('[Transfer] Unexpected error or timeout:', error);
-      return false; // guaranteed — never hangs
+    } catch (error: any) {
+      console.error('[Transfer] Unexpected error or timeout:', error?.message || error);
+      return false;
     }
   };
 
