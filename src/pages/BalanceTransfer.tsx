@@ -107,6 +107,7 @@ const BalanceTransfer = () => {
   const [activeView, setActiveView] = useState<"transfer" | "history">("transfer");
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
@@ -158,6 +159,7 @@ const BalanceTransfer = () => {
   const fetchHistory = async (page: number = 1) => {
     if (!session?.user?.id) return;
     setHistoryLoading(true);
+    setHistoryError(false);
 
     try {
       const result: any = await Promise.race([
@@ -176,9 +178,12 @@ const BalanceTransfer = () => {
       if (!error && data) {
         setTransferHistory(data);
         setHasMore(data.length === HISTORY_PER_PAGE);
+      } else if (error) {
+        throw error;
       }
     } catch (err) {
       console.error("Fetch history failed or timed out:", err);
+      setHistoryError(true);
       toast.error("Could not load transfer history. Please try again.");
     } finally {
       setHistoryLoading(false);
@@ -260,7 +265,18 @@ const BalanceTransfer = () => {
 
               <div className="space-y-2 min-h-[300px]">
                 {transferHistory.length === 0 && !historyLoading ? (
-                  <div className="text-center py-12 text-muted-foreground">No transfer history yet</div>
+                  <div className="text-center py-12 text-muted-foreground">
+                    {historyError ? (
+                      <>
+                        <p className="mb-3">Couldn't load your history right now.</p>
+                        <Button variant="outline" size="sm" onClick={() => fetchHistory(historyPage)}>
+                          Retry
+                        </Button>
+                      </>
+                    ) : (
+                      "No transfer history yet"
+                    )}
+                  </div>
                 ) : (
                   <AnimatePresence mode="wait">
                     <motion.div
