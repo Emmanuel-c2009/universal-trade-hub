@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardHeader } from "@/components/dashboard/DashboardHeader";
 import { SidebarNav } from "@/components/dashboard/SidebarNav";
@@ -10,25 +10,77 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRightLeft, ArrowRight, CheckCircle, History, ArrowLeft } from "lucide-react";
+import {
+  ArrowRightLeft, ArrowDownUp, CheckCircle, History, ArrowLeft,
+  ChevronLeft, ChevronRight, Wallet, TrendingUp, Gift, Target,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useUnifiedBalance } from "@/hooks/useUnifiedBalance";
 import { formatEUR } from "@/lib/utils";
 import { format } from "date-fns";
 
-const BALANCE_TYPES = [
-  { value: 'funding', label: 'Funding Balance', icon: '💰' },
-  { value: 'trading', label: 'Trading Balance', icon: '📊' },
-  { value: 'bonus', label: 'Bonus Balance', icon: '🎁' },
-  { value: 'challenges', label: 'Challenges Balance', icon: '🎯' },
-  { value: 'btc', label: 'BTC Wallet', icon: '₿' },
-  { value: 'eth', label: 'ETH Wallet', icon: 'Ξ' },
-  { value: 'usdt', label: 'USDT Wallet', icon: '💵' },
-  { value: 'ltc', label: 'LTC Wallet', icon: 'Ł' },
-  { value: 'bnb', label: 'BNB Wallet', icon: '🔶' },
+// ---------- Crypto icon badges (no external icon package needed) ----------
+const CRYPTO_COLORS: Record<string, string> = {
+  BTC: "#F7931A",
+  ETH: "#627EEA",
+  USDT: "#26A17B",
+  LTC: "#A6A9AA",
+  BNB: "#F3BA2F",
+};
+const CRYPTO_GLYPHS: Record<string, string> = {
+  BTC: "₿",
+  ETH: "Ξ",
+  USDT: "₮",
+  LTC: "Ł",
+  BNB: "B",
+};
+
+function CryptoIcon({ symbol, size = 28 }: { symbol: string; size?: number }) {
+  const color = CRYPTO_COLORS[symbol] || "#888";
+  const glyph = CRYPTO_GLYPHS[symbol] || symbol[0];
+  return (
+    <div
+      style={{ width: size, height: size, backgroundColor: color }}
+      className="rounded-full flex items-center justify-center shrink-0 shadow-sm"
+    >
+      <span className="text-white font-bold" style={{ fontSize: size * 0.5 }}>{glyph}</span>
+    </div>
+  );
+}
+
+// ---------- Balance type registry ----------
+type BalanceTypeInfo =
+  | { value: string; label: string; kind: "fiat"; icon: any; color: string }
+  | { value: string; label: string; kind: "crypto"; symbol: string };
+
+const BALANCE_TYPES: BalanceTypeInfo[] = [
+  { value: "funding", label: "Funding Balance", kind: "fiat", icon: Wallet, color: "#3B82F6" },
+  { value: "trading", label: "Trading Balance", kind: "fiat", icon: TrendingUp, color: "#10B981" },
+  { value: "bonus", label: "Bonus Balance", kind: "fiat", icon: Gift, color: "#EC4899" },
+  { value: "challenges", label: "Challenges Balance", kind: "fiat", icon: Target, color: "#8B5CF6" },
+  { value: "btc", label: "Bitcoin", kind: "crypto", symbol: "BTC" },
+  { value: "eth", label: "Ethereum", kind: "crypto", symbol: "ETH" },
+  { value: "usdt", label: "Tether", kind: "crypto", symbol: "USDT" },
+  { value: "ltc", label: "Litecoin", kind: "crypto", symbol: "LTC" },
+  { value: "bnb", label: "BNB", kind: "crypto", symbol: "BNB" },
 ];
+
+const getTypeInfo = (value: string) => BALANCE_TYPES.find((t) => t.value === value)!;
+
+function TypeIcon({ value, size = 28 }: { value: string; size?: number }) {
+  const info = getTypeInfo(value);
+  if (info.kind === "crypto") return <CryptoIcon symbol={info.symbol} size={size} />;
+  const Icon = info.icon;
+  return (
+    <div
+      style={{ width: size, height: size, backgroundColor: `${info.color}22` }}
+      className="rounded-full flex items-center justify-center shrink-0"
+    >
+      <Icon style={{ width: size * 0.55, height: size * 0.55, color: info.color }} />
+    </div>
+  );
+}
 
 interface TransferRecord {
   id: string;
@@ -42,6 +94,8 @@ interface TransferRecord {
   created_at: string;
 }
 
+const HISTORY_PER_PAGE = 5;
+
 const BalanceTransfer = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,16 +103,16 @@ const BalanceTransfer = () => {
   const [loading, setLoading] = useState(true);
   const [transferring, setTransferring] = useState(false);
   const [success, setSuccess] = useState(false);
-  // Issue 8: Add history view
-  const [activeView, setActiveView] = useState<'transfer' | 'history'>('transfer');
+
+  const [activeView, setActiveView] = useState<"transfer" | "history">("transfer");
   const [transferHistory, setTransferHistory] = useState<TransferRecord[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyPage, setHistoryPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  const [fromType, setFromType] = useState('funding');
-  const [toType, setToType] = useState('trading');
-  const [amount, setAmount] = useState('');
+  const [fromType, setFromType] = useState("funding");
+  const [toType, setToType] = useState("trading");
+  const [amount, setAmount] = useState("");
 
   const { balance, totals, cryptoPrices, transferBalance, getBalanceByType } = useUnifiedBalance(session?.user?.id);
 
@@ -77,7 +131,6 @@ const BalanceTransfer = () => {
       setLoading(false);
     };
 
-    // Race the real session check against a hard 6-second timeout
     Promise.race([
       supabase.auth.getSession(),
       new Promise((resolve) =>
@@ -87,7 +140,7 @@ const BalanceTransfer = () => {
       .then((result: any) => {
         if (result?.timedOut) {
           console.warn("Session check timed out — forcing reload");
-          window.location.reload(); // last resort: fresh reload clears any stuck internal state
+          window.location.reload();
           return;
         }
         finish(result);
@@ -98,55 +151,58 @@ const BalanceTransfer = () => {
       });
 
     return () => {
-      didFinish = true; // prevent a late resolve from acting after unmount
+      didFinish = true;
     };
   }, [navigate]);
 
   const fetchHistory = async (page: number = 1) => {
     if (!session?.user?.id) return;
     setHistoryLoading(true);
-    const perPage = 15;
 
     try {
       const result: any = await Promise.race([
         supabase
-          .from('balance_transfers')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .order('created_at', { ascending: false })
-          .range((page - 1) * perPage, page * perPage - 1),
+          .from("balance_transfers")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .range((page - 1) * HISTORY_PER_PAGE, page * HISTORY_PER_PAGE - 1),
         new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Request timed out')), 6000)
+          setTimeout(() => reject(new Error("Request timed out")), 6000)
         ),
       ]);
 
       const { data, error } = result;
       if (!error && data) {
-        if (page === 1) setTransferHistory(data);
-        else setTransferHistory(prev => [...prev, ...data]);
-        setHasMore(data.length === perPage);
+        setTransferHistory(data);
+        setHasMore(data.length === HISTORY_PER_PAGE);
       }
     } catch (err) {
-      console.error('Fetch history failed or timed out:', err);
-      toast.error('Could not load transfer history. Please try again.');
+      console.error("Fetch history failed or timed out:", err);
+      toast.error("Could not load transfer history. Please try again.");
     } finally {
-      setHistoryLoading(false); // ALWAYS runs, no matter what happened above
+      setHistoryLoading(false);
     }
   };
 
   const sourceBalance = getBalanceByType(fromType);
-  const isCryptoTransfer = ['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType) || 
-                           ['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(toType);
-  
+  const cryptoValues = ["btc", "eth", "usdt", "ltc", "bnb"];
+  const isCryptoTransfer = cryptoValues.includes(fromType) || cryptoValues.includes(toType);
+
   const getExchangeRate = () => {
-    if (['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType) && !['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(toType)) {
+    if (cryptoValues.includes(fromType) && !cryptoValues.includes(toType)) {
       const crypto = fromType.toUpperCase();
-      return cryptoPrices.find(p => p.symbol === crypto)?.price_eur || 1;
-    } else if (!['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType) && ['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(toType)) {
+      return cryptoPrices.find((p) => p.symbol === crypto)?.price_eur || 1;
+    } else if (!cryptoValues.includes(fromType) && cryptoValues.includes(toType)) {
       const crypto = toType.toUpperCase();
-      return cryptoPrices.find(p => p.symbol === crypto)?.price_eur || 1;
+      return cryptoPrices.find((p) => p.symbol === crypto)?.price_eur || 1;
     }
     return 1;
+  };
+
+  const handleSwap = () => {
+    setFromType(toType);
+    setToType(fromType);
   };
 
   const handleTransfer = async () => {
@@ -156,9 +212,9 @@ const BalanceTransfer = () => {
 
     setTransferring(true);
     const exchangeRate = getExchangeRate();
-    const cryptoSymbol = isCryptoTransfer ? (
-      ['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType) ? fromType.toUpperCase() : toType.toUpperCase()
-    ) : undefined;
+    const cryptoSymbol = isCryptoTransfer
+      ? (cryptoValues.includes(fromType) ? fromType.toUpperCase() : toType.toUpperCase())
+      : undefined;
 
     const result = await transferBalance(fromType, toType, parseFloat(amount), cryptoSymbol, exchangeRate !== 1 ? exchangeRate : undefined);
     setTransferring(false);
@@ -166,7 +222,7 @@ const BalanceTransfer = () => {
     if (result) {
       setSuccess(true);
       toast.success("Transfer completed successfully!");
-      setTimeout(() => { setSuccess(false); setAmount(''); }, 2000);
+      setTimeout(() => { setSuccess(false); setAmount(""); }, 2000);
     } else {
       toast.error("Transfer failed. Please try again.");
     }
@@ -180,71 +236,99 @@ const BalanceTransfer = () => {
     );
   }
 
+  const availableDisplay = cryptoValues.includes(fromType)
+    ? `${sourceBalance.toFixed(6)} ${fromType.toUpperCase()}`
+    : fromType === "usdt"
+    ? `$${sourceBalance.toFixed(2)}`
+    : formatEUR(sourceBalance);
+
   return (
     <div className="min-h-screen bg-background pb-20 lg:pb-0">
       <SidebarNav isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <DashboardHeader onMenuClick={() => setSidebarOpen(true)} />
-      
+
       <main className="container mx-auto px-4 pt-24 max-w-2xl">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-          {activeView === 'history' ? (
-            /* Issue 8: Transfer History View */
+          {activeView === "history" ? (
             <div>
               <div className="flex items-center gap-3 mb-6">
-                <Button variant="ghost" size="icon" onClick={() => setActiveView('transfer')}>
+                <Button variant="ghost" size="icon" onClick={() => setActiveView("transfer")}>
                   <ArrowLeft className="w-5 h-5" />
                 </Button>
                 <h1 className="text-2xl font-bold">Transfer History</h1>
               </div>
 
-              <div className="space-y-2">
+              <div className="space-y-2 min-h-[300px]">
                 {transferHistory.length === 0 && !historyLoading ? (
                   <div className="text-center py-12 text-muted-foreground">No transfer history yet</div>
                 ) : (
-                  transferHistory.map(t => {
-                    const fromLabel = BALANCE_TYPES.find(b => b.value === t.from_balance_type);
-                    const toLabel = BALANCE_TYPES.find(b => b.value === t.to_balance_type);
-                    return (
-                      <Card key={t.id} className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-secondary/10 flex items-center justify-center">
-                              <ArrowRightLeft className="w-5 h-5 text-secondary" />
-                            </div>
-                            <div>
-                              <div className="font-medium text-sm">
-                                {fromLabel?.icon} {fromLabel?.label || t.from_balance_type} → {toLabel?.icon} {toLabel?.label || t.to_balance_type}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {format(new Date(t.created_at), "MMM d, yyyy HH:mm")}
-                              </div>
-                              {t.crypto_amount && t.crypto_symbol && (
-                                <div className="text-xs text-muted-foreground mt-0.5">
-                                  {parseFloat(String(t.crypto_amount)).toFixed(6)} {t.crypto_symbol}
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={historyPage}
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-2"
+                    >
+                      {transferHistory.map((t) => {
+                        const fromInfo = getTypeInfo(t.from_balance_type);
+                        const toInfo = getTypeInfo(t.to_balance_type);
+                        return (
+                          <Card key={t.id} className="p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex items-center -space-x-2 shrink-0">
+                                  <TypeIcon value={t.from_balance_type} size={30} />
+                                  <TypeIcon value={t.to_balance_type} size={30} />
                                 </div>
-                              )}
+                                <div className="min-w-0">
+                                  <div className="font-medium text-sm truncate">
+                                    {fromInfo?.label || t.from_balance_type} → {toInfo?.label || t.to_balance_type}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {format(new Date(t.created_at), "MMM d, yyyy HH:mm")}
+                                  </div>
+                                  {t.crypto_amount && t.crypto_symbol && (
+                                    <div className="text-xs text-muted-foreground mt-0.5">
+                                      {parseFloat(String(t.crypto_amount)).toFixed(6)} {t.crypto_symbol}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right shrink-0">
+                                <div className="font-mono font-semibold text-sm">{formatEUR(t.amount)}</div>
+                                <Badge className="bg-emerald-500/20 text-emerald-500 text-[10px]">
+                                  {t.status === "completed" ? "✓ Completed" : t.status}
+                                </Badge>
+                              </div>
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="font-mono font-semibold text-sm">{formatEUR(t.amount)}</div>
-                            <Badge className="bg-emerald-500/20 text-emerald-500 text-[10px]">
-                              {t.status === 'completed' ? '✓ Completed' : t.status}
-                            </Badge>
-                          </div>
-                        </div>
-                      </Card>
-                    );
-                  })
+                          </Card>
+                        );
+                      })}
+                    </motion.div>
+                  </AnimatePresence>
                 )}
-                {hasMore && transferHistory.length > 0 && (
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => { const next = historyPage + 1; setHistoryPage(next); fetchHistory(next); }}
-                    disabled={historyLoading}
-                  >
-                    {historyLoading ? 'Loading...' : 'Load More'}
-                  </Button>
+
+                {(transferHistory.length > 0 || historyPage > 1) && (
+                  <div className="flex items-center justify-between pt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={historyPage === 1 || historyLoading}
+                      onClick={() => { const prev = historyPage - 1; setHistoryPage(prev); fetchHistory(prev); }}
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" /> Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">Page {historyPage}</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={!hasMore || historyLoading}
+                      onClick={() => { const next = historyPage + 1; setHistoryPage(next); fetchHistory(next); }}
+                    >
+                      Next <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </div>
@@ -252,16 +336,19 @@ const BalanceTransfer = () => {
             <>
               {/* Header */}
               <div className="mb-8 text-center">
-                <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center mx-auto mb-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-secondary/30 to-secondary/10 flex items-center justify-center mx-auto mb-4 ring-1 ring-secondary/30">
                   <ArrowRightLeft className="w-8 h-8 text-secondary" />
                 </div>
                 <h1 className="text-3xl font-bold mb-2">Balance Transfer</h1>
                 <p className="text-muted-foreground">Transfer funds between your balances instantly</p>
               </div>
 
-              {/* History Button */}
               <div className="flex justify-end mb-4">
-                <Button variant="outline" size="sm" onClick={() => { setActiveView('history'); setHistoryPage(1); fetchHistory(1); }}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setActiveView("history"); setHistoryPage(1); fetchHistory(1); }}
+                >
                   <History className="w-4 h-4 mr-2" />
                   Transfer History
                 </Button>
@@ -274,37 +361,61 @@ const BalanceTransfer = () => {
                   <p className="text-muted-foreground">Your funds have been transferred successfully</p>
                 </motion.div>
               ) : (
-                <Card className="p-6">
-                  <div className="mb-6">
+                <Card className="p-6 border-border/60 shadow-lg">
+                  <div className="mb-2">
                     <Label className="text-muted-foreground mb-2 block">From</Label>
                     <Select value={fromType} onValueChange={setFromType}>
-                      <SelectTrigger className="bg-card"><SelectValue placeholder="Select source balance" /></SelectTrigger>
+                      <SelectTrigger className="bg-card h-14">
+                        <SelectValue placeholder="Select source balance">
+                          <div className="flex items-center gap-3">
+                            <TypeIcon value={fromType} size={26} />
+                            <span>{getTypeInfo(fromType)?.label}</span>
+                          </div>
+                        </SelectValue>
+                      </SelectTrigger>
                       <SelectContent>
                         {BALANCE_TYPES.map((type) => (
-                          <SelectItem key={type.value} value={type.value}>{type.icon} {type.label}</SelectItem>
+                          <SelectItem key={type.value} value={type.value} textValue={type.label}>
+                            <div className="flex items-center gap-3">
+                              <TypeIcon value={type.value} size={22} />
+                              <span>{type.label}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Available: {['btc', 'eth', 'ltc', 'bnb'].includes(fromType) 
-                        ? `${sourceBalance.toFixed(6)} ${fromType.toUpperCase()}`
-                        : fromType === 'usdt' ? `$${sourceBalance.toFixed(2)}` : formatEUR(sourceBalance)}
-                    </p>
+                    <p className="text-sm text-muted-foreground mt-2">Available: {availableDisplay}</p>
                   </div>
 
-                  <div className="flex justify-center my-4">
-                    <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center">
-                      <ArrowRight className="w-5 h-5 text-muted-foreground rotate-90" />
-                    </div>
+                  <div className="flex justify-center my-2 relative z-10">
+                    <button
+                      onClick={handleSwap}
+                      className="w-11 h-11 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center shadow-md hover:scale-105 active:scale-95 transition-transform -my-2 ring-4 ring-background"
+                      aria-label="Swap From and To"
+                    >
+                      <ArrowDownUp className="w-5 h-5" />
+                    </button>
                   </div>
 
                   <div className="mb-6">
                     <Label className="text-muted-foreground mb-2 block">To</Label>
                     <Select value={toType} onValueChange={setToType}>
-                      <SelectTrigger className="bg-card"><SelectValue placeholder="Select destination balance" /></SelectTrigger>
+                      <SelectTrigger className="bg-card h-14">
+                        <SelectValue placeholder="Select destination balance">
+                          <div className="flex items-center gap-3">
+                            <TypeIcon value={toType} size={26} />
+                            <span>{getTypeInfo(toType)?.label}</span>
+                          </div>
+                        </SelectValue>
+                      </SelectTrigger>
                       <SelectContent>
-                        {BALANCE_TYPES.filter(t => t.value !== fromType).map((type) => (
-                          <SelectItem key={type.value} value={type.value}>{type.icon} {type.label}</SelectItem>
+                        {BALANCE_TYPES.filter((t) => t.value !== fromType).map((type) => (
+                          <SelectItem key={type.value} value={type.value} textValue={type.label}>
+                            <div className="flex items-center gap-3">
+                              <TypeIcon value={type.value} size={22} />
+                              <span>{type.label}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -313,9 +424,15 @@ const BalanceTransfer = () => {
                   <div className="mb-6">
                     <Label className="text-muted-foreground mb-2 block">Amount</Label>
                     <div className="relative">
-                      <Input type="number" placeholder="0.00" value={amount} onChange={(e) => setAmount(e.target.value)} className="text-2xl h-14 pr-20" />
+                      <Input
+                        type="number"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        className="text-2xl h-14 pr-20"
+                      />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
-                        {['btc', 'eth', 'ltc', 'bnb'].includes(fromType) ? fromType.toUpperCase() : fromType === 'usdt' ? 'USDT' : 'EUR'}
+                        {cryptoValues.includes(fromType) ? fromType.toUpperCase() : fromType === "usdt" ? "USDT" : "EUR"}
                       </span>
                     </div>
                     <Button variant="ghost" size="sm" className="mt-2 text-secondary" onClick={() => setAmount(sourceBalance.toString())}>
@@ -324,13 +441,13 @@ const BalanceTransfer = () => {
                   </div>
 
                   {isCryptoTransfer && getExchangeRate() !== 1 && (
-                    <div className="mb-6 p-4 bg-muted/50 rounded-lg">
+                    <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border/50">
                       <p className="text-sm text-muted-foreground">
-                        Exchange Rate: 1 {['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType) ? fromType.toUpperCase() : toType.toUpperCase()} = {formatEUR(getExchangeRate())}
+                        Exchange Rate: 1 {cryptoValues.includes(fromType) ? fromType.toUpperCase() : toType.toUpperCase()} = {formatEUR(getExchangeRate())}
                       </p>
                       {amount && (
                         <p className="text-sm font-medium mt-1">
-                          You will receive: ≈ {['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(toType) 
+                          You will receive: ≈ {cryptoValues.includes(toType)
                             ? `${(parseFloat(amount) / getExchangeRate()).toFixed(6)} ${toType.toUpperCase()}`
                             : formatEUR(parseFloat(amount) * getExchangeRate())}
                         </p>
@@ -338,7 +455,11 @@ const BalanceTransfer = () => {
                     </div>
                   )}
 
-                  <Button className="w-full h-14 text-lg bg-secondary text-secondary-foreground hover:bg-secondary/90" onClick={handleTransfer} disabled={transferring || !amount || parseFloat(amount) <= 0}>
+                  <Button
+                    className="w-full h-14 text-lg bg-secondary text-secondary-foreground hover:bg-secondary/90"
+                    onClick={handleTransfer}
+                    disabled={transferring || !amount || parseFloat(amount) <= 0}
+                  >
                     {transferring ? (
                       <div className="flex items-center gap-2">
                         <div className="w-5 h-5 border-2 border-secondary-foreground/30 border-t-secondary-foreground rounded-full animate-spin" />
@@ -352,11 +473,27 @@ const BalanceTransfer = () => {
               )}
 
               <div className="mt-6 grid grid-cols-2 gap-4">
-                <Button variant="outline" onClick={() => { setFromType('funding'); setToType('trading'); }} className="h-auto py-4 flex-col">
+                <Button
+                  variant="outline"
+                  onClick={() => { setFromType("funding"); setToType("trading"); }}
+                  className="h-auto py-4 flex-col gap-1"
+                >
+                  <div className="flex items-center -space-x-2">
+                    <TypeIcon value="funding" size={22} />
+                    <TypeIcon value="trading" size={22} />
+                  </div>
                   <span className="text-sm text-muted-foreground">Quick Transfer</span>
                   <span className="font-medium">Funding → Trading</span>
                 </Button>
-                <Button variant="outline" onClick={() => { setFromType('trading'); setToType('funding'); }} className="h-auto py-4 flex-col">
+                <Button
+                  variant="outline"
+                  onClick={() => { setFromType("trading"); setToType("funding"); }}
+                  className="h-auto py-4 flex-col gap-1"
+                >
+                  <div className="flex items-center -space-x-2">
+                    <TypeIcon value="trading" size={22} />
+                    <TypeIcon value="funding" size={22} />
+                  </div>
                   <span className="text-sm text-muted-foreground">Quick Transfer</span>
                   <span className="font-medium">Trading → Funding</span>
                 </Button>
