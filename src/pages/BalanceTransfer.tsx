@@ -106,19 +106,32 @@ const BalanceTransfer = () => {
     if (!session?.user?.id) return;
     setHistoryLoading(true);
     const perPage = 15;
-    const { data, error } = await supabase
-      .from('balance_transfers')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false })
-      .range((page - 1) * perPage, page * perPage - 1);
 
-    if (!error && data) {
-      if (page === 1) setTransferHistory(data);
-      else setTransferHistory(prev => [...prev, ...data]);
-      setHasMore(data.length === perPage);
+    try {
+      const result: any = await Promise.race([
+        supabase
+          .from('balance_transfers')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .order('created_at', { ascending: false })
+          .range((page - 1) * perPage, page * perPage - 1),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timed out')), 6000)
+        ),
+      ]);
+
+      const { data, error } = result;
+      if (!error && data) {
+        if (page === 1) setTransferHistory(data);
+        else setTransferHistory(prev => [...prev, ...data]);
+        setHasMore(data.length === perPage);
+      }
+    } catch (err) {
+      console.error('Fetch history failed or timed out:', err);
+      toast.error('Could not load transfer history. Please try again.');
+    } finally {
+      setHistoryLoading(false); // ALWAYS runs, no matter what happened above
     }
-    setHistoryLoading(false);
   };
 
   const sourceBalance = getBalanceByType(fromType);
