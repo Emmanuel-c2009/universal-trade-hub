@@ -63,17 +63,43 @@ const BalanceTransfer = () => {
   const { balance, totals, cryptoPrices, transferBalance, getBalanceByType } = useUnifiedBalance(session?.user?.id);
 
   useEffect(() => {
-    supabase.auth.getSession()
-      .then(({ data: { session } }) => {
-        if (!session) { navigate("/auth"); return; }
-        setSession(session);
-        setLoading(false);
+    let didFinish = false;
+
+    const finish = (result: any) => {
+      if (didFinish) return;
+      didFinish = true;
+      const session = result?.data?.session ?? null;
+      if (!session) {
+        navigate("/auth");
+        return;
+      }
+      setSession(session);
+      setLoading(false);
+    };
+
+    // Race the real session check against a hard 6-second timeout
+    Promise.race([
+      supabase.auth.getSession(),
+      new Promise((resolve) =>
+        setTimeout(() => resolve({ data: { session: null }, timedOut: true }), 6000)
+      ),
+    ])
+      .then((result: any) => {
+        if (result?.timedOut) {
+          console.warn("Session check timed out — forcing reload");
+          window.location.reload(); // last resort: fresh reload clears any stuck internal state
+          return;
+        }
+        finish(result);
       })
       .catch((err) => {
         console.error("Session check failed:", err);
-        setLoading(false);   // always clear the spinner, even on failure
-        navigate("/auth");   // send them to login rather than leaving them stuck
+        finish({ data: { session: null } });
       });
+
+    return () => {
+      didFinish = true; // prevent a late resolve from acting after unmount
+    };
   }, [navigate]);
 
   const fetchHistory = async (page: number = 1) => {
