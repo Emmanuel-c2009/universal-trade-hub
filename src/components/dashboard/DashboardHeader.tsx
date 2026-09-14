@@ -14,6 +14,7 @@ import { useAdminRole } from "@/hooks/useAdminRole";
 import { useUserNotifications } from "@/hooks/useUserNotifications";
 import { formatDistanceToNow } from "date-fns";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
+import { useTranslation } from "react-i18next";
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -40,6 +41,7 @@ export const DashboardHeader = ({
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
   const { isAdmin } = useAdminRole();
+  const { t } = useTranslation();
   const [userEmail, setUserEmail] = useState<string>("");
   const [userId, setUserId] = useState<string | null>(null);
   const [unreadMessageCount, setUnreadMessageCount] = useState(0);
@@ -129,9 +131,9 @@ export const DashboardHeader = ({
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 18) return "Good afternoon";
-    return "Good evening";
+    if (hour < 12) return t("dashboard.greeting_morning");
+    if (hour < 18) return t("dashboard.greeting_afternoon");
+    return t("dashboard.greeting_evening");
   };
 
   const handleSignOut = async () => {
@@ -307,7 +309,7 @@ export const DashboardHeader = ({
           <h1 className="text-2xl font-bold">
             {getGreeting()}, {userName}
           </h1>
-          <p className="text-sm text-muted-foreground">Here's what's happening with your trading today</p>
+          <p className="text-sm text-muted-foreground">{t("dashboard.greeting_subtitle")}</p>
         </div>
       ) : pageTitle ? (
         <div className="px-4 py-3 border-b border-border">
