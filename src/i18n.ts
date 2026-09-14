@@ -4,6 +4,8 @@ import LanguageDetector from 'i18next-browser-languagedetector';
 
 import en from './locales/en/translation.json';
 import es from './locales/es/translation.json';
+import fr from './locales/fr/translation.json';
+import pt from './locales/pt/translation.json';
 
 i18n
   .use(LanguageDetector)
@@ -12,16 +14,16 @@ i18n
     resources: {
       en: { translation: en },
       es: { translation: es },
+      fr: { translation: fr },
+      pt: { translation: pt },
     },
-    fallbackLng: 'en', // if we don't have a translation for their language, use English
+    fallbackLng: 'en',
     interpolation: {
       escapeValue: false,
     },
     detection: {
-      // Only ever guess from the device/browser language setting or a
-      // saved manual choice — NEVER from IP address or location.
       order: ['localStorage', 'navigator'],
-      caches: ['localStorage'], // remembers the user's manual choice
+      caches: ['localStorage'],
     },
   });
 
