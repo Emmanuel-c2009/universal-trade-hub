@@ -1,0 +1,17 @@
+{
+  "welcome": "Bem-vindo",
+  "transfer_funds": "Transferir Fundos",
+  "balance": "Saldo",
+  "transfer_success": "Transferência concluída com sucesso",
+  "transfer_error": "Algo deu errado. Por favor, tente novamente.",
+  "dashboard": {
+    "trader": "Trader",
+    "verify_title": "Verifique Sua Conta",
+    "verify_description": "Complete a verificação para desbloquear todos os recursos de trading.",
+    "verify_button": "Iniciar Verificação",
+    "greeting_morning": "Bom dia",
+    "greeting_afternoon": "Boa tarde",
+    "greeting_evening": "Boa noite",
+    "greeting_subtitle": "Veja o que está acontecendo com seu trading hoje"
+  }
+}
