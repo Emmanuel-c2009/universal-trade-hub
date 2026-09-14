@@ -305,6 +305,26 @@ export const useUnifiedBalance = (userId: string | null) => {
     let cancelled = false;
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
+        // ============================================
+        // TEMPORARY DIAGNOSTIC — remove once root cause is confirmed
+        // ============================================
+        // Times getSession() in isolation, completely separately from
+        // the balance/price fetches below, so we can see directly
+        // whether IT is what's hanging, or whether it resolves fine
+        // and something else is the real blocker.
+        const diagStart = performance.now();
+        console.log('🔍 [DIAG] getSession() called at visibility change...');
+        supabase.auth.getSession().then((result) => {
+          const ms = Math.round(performance.now() - diagStart);
+          console.log(`🔍 [DIAG] getSession() RESOLVED after ${ms}ms — session:`, result?.data?.session ? 'present' : 'MISSING/NULL', result?.error ? `error: ${result.error.message}` : '');
+        }).catch((err) => {
+          const ms = Math.round(performance.now() - diagStart);
+          console.log(`🔍 [DIAG] getSession() REJECTED after ${ms}ms:`, err);
+        });
+        // ============================================
+        // END TEMPORARY DIAGNOSTIC
+        // ============================================
+
         jitterDelay().then(() => {
           if (!cancelled) {
             fetchBalance();
@@ -489,4 +509,4 @@ export const useUnifiedBalance = (userId: string | null) => {
     getBalanceByType,
   };
 };
-        
+    
