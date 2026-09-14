@@ -23,7 +23,13 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: window.sessionStorage,
     persistSession: true,
-    autoRefreshToken: false,
+    // Changed from false -> true. With this off, the login token was
+    // never refreshed in the background. The FIRST request made after
+    // returning to a tab was then forced to refresh it live, on the spot,
+    // and every other request had to wait in line behind that one call.
+    // With this on, Supabase keeps the token fresh proactively while the
+    // tab is focused, so no request ever gets stuck waiting for it again.
+    autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
     lock: noOpLock,
@@ -50,7 +56,9 @@ export const supabaseStatic = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KE
   auth: {
     storage: customStorage,
     persistSession: true,
-    autoRefreshToken: false,
+    // Same change as above, applied to this second client too — both
+    // need it, since both independently manage their own session state.
+    autoRefreshToken: true,
     detectSessionInUrl: false,
     flowType: 'pkce',
     storageKey: 'sb-static-auth-token',
