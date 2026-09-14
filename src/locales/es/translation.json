@@ -123,5 +123,25 @@
     "toast_min_withdrawal": "El monto mínimo de retiro es €{{amount}}",
     "toast_withdraw_success": "¡€{{amount}} se han agregado a tu Saldo de Bono! Ahora puedes transferirlo al Saldo de Fondeo.",
     "toast_withdraw_failed": "Retiro fallido"
+  },
+  "notifications": {
+    "title": "Notificaciones",
+    "mark_all_as_read": "Marcar todo como leído",
+    "empty": "Aún no hay notificaciones",
+    "view_all": "Ver todas las notificaciones",
+    "just_now": "justo ahora",
+    "minutes_ago_one": "hace {{count}} min",
+    "minutes_ago_other": "hace {{count}} min",
+    "hours_ago_one": "hace {{count}} hora",
+    "hours_ago_other": "hace {{count}} horas",
+    "days_ago_one": "hace {{count}} día",
+    "days_ago_other": "hace {{count}} días"
+  },
+  "bottom_nav": {
+    "home": "Inicio",
+    "markets": "Mercados",
+    "trading": "Trading",
+    "portfolio": "Portafolio",
+    "profile": "Perfil"
   }
 }
