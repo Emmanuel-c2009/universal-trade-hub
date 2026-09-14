@@ -144,28 +144,4 @@
     "portfolio": "Portefeuille",
     "profile": "Profil"
   }
-}    "withdraw_bonus": "Retirer le Bonus",
-    "signup_bonus_title": "🎁 Bonus d'Inscription",
-    "signup_bonus_line": "Vous recevez {{amount}}€ par parrainage",
-    "signup_bonus_friend": "Votre ami reçoit {{amount}}€",
-    "deposit_bonus_title": "💰 Bonus de Dépôt",
-    "deposit_bonus_line": "{{percent}}% du premier dépôt de l'ami",
-    "deposit_bonus_hint": "Lors de leur premier dépôt",
-    "trading_commission_title": "📊 Commission de Trading",
-    "trading_commission_line": "{{percent}}% des frais de trading",
-    "trading_commission_hint": "Gagnez sur chaque transaction effectuée",
-    "history_title": "Historique des Parrainages",
-    "col_user": "Utilisateur",
-    "col_status": "Statut",
-    "col_first_deposit": "Premier Dépôt",
-    "col_date": "Date",
-    "col_earned": "Gagné",
-    "anonymous": "Anonyme",
-    "no_referrals": "Aucun parrainage pour le moment. Partagez votre lien pour commencer !",
-    "toast_load_error": "Impossible de charger les données de parrainage",
-    "toast_copied": "Copié dans le presse-papiers !",
-    "toast_min_withdrawal": "Le montant minimum de retrait est de {{amount}}€",
-    "toast_withdraw_success": "{{amount}}€ ont été ajoutés à votre Solde de Bonus ! Vous pouvez maintenant les transférer vers le Solde de Financement.",
-    "toast_withdraw_failed": "Échec du retrait"
-  }
 }
