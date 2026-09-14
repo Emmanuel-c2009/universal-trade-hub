@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { useTranslation } from "react-i18next";
 
 interface SidebarNavProps {
   isOpen: boolean;
@@ -42,6 +43,7 @@ interface SidebarNavProps {
 
 export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
   const location = useLocation();
+  const { t } = useTranslation();
   const [expandedSections, setExpandedSections] = useState<string[]>(["trading"]);
   const { isFeatureVisible, isComingSoon, getComingSoonMessage } = useFeatureFlags();
 
@@ -53,83 +55,93 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
 
   const menuItems = [
     {
-      title: "Dashboard",
+      id: "dashboard",
+      title: t("sidebar.section_dashboard"),
       icon: LayoutDashboard,
       items: [
-        { label: "Account Overview", icon: User, path: "/dashboard" },
-        { label: "Transaction History", icon: FileText, path: "/transactions" },
+        { id: "account_overview", label: t("sidebar.account_overview"), icon: User, path: "/dashboard" },
+        { id: "transaction_history", label: t("sidebar.transaction_history"), icon: FileText, path: "/transactions" },
       ],
     },
     {
-      title: "Trading",
+      id: "trading",
+      title: t("sidebar.section_trading"),
       icon: TrendingUp,
       section: "trading",
       items: [
-        { label: "Execute Trade", icon: Zap, hasSubmenu: true },
-        { label: "Metal Trader", icon: BarChart3, path: "/metal-trader", indent: true },
-        { label: "Quick Trade (QT)", icon: Zap, path: "/quick-trade", indent: true },
-        { label: "Copy Trading", icon: Users, path: "/copy-trading", indent: true },
-        { label: "AI Bot Trading", icon: Bot, path: "/ai-bot-trading", indent: true },
-        { label: "Stock Investments", icon: Building2, path: "/trading", indent: true, featureFlag: "stock_investment" },
-        { label: "Cryptocurrency Trading", icon: Bitcoin, path: "/trading", indent: true },
-        { label: "Swap Coins", icon: RefreshCw, path: "/swap", featureFlag: "swap_coin" },
-        { label: "Challenge Account", icon: Target, path: "/challenge", featureFlag: "challenge_account" },
-        { label: "Demo Trading", icon: Gamepad2, path: "/trading/demo", featureFlag: "demo_trading" },
+        { id: "execute_trade", label: t("sidebar.execute_trade"), icon: Zap, hasSubmenu: true },
+        { id: "metal_trader", label: t("sidebar.metal_trader"), icon: BarChart3, path: "/metal-trader", indent: true },
+        { id: "quick_trade", label: t("sidebar.quick_trade"), icon: Zap, path: "/quick-trade", indent: true },
+        { id: "copy_trading", label: t("sidebar.copy_trading"), icon: Users, path: "/copy-trading", indent: true },
+        { id: "ai_bot_trading", label: t("sidebar.ai_bot_trading"), icon: Bot, path: "/ai-bot-trading", indent: true },
+        { id: "stock_investments", label: t("sidebar.stock_investments"), icon: Building2, path: "/trading", indent: true, featureFlag: "stock_investment" },
+        { id: "crypto_trading", label: t("sidebar.crypto_trading"), icon: Bitcoin, path: "/trading", indent: true },
+        { id: "swap_coins", label: t("sidebar.swap_coins"), icon: RefreshCw, path: "/swap", featureFlag: "swap_coin" },
+        { id: "challenge_account", label: t("sidebar.challenge_account"), icon: Target, path: "/challenge", featureFlag: "challenge_account" },
+        { id: "demo_trading", label: t("sidebar.demo_trading"), icon: Gamepad2, path: "/trading/demo", featureFlag: "demo_trading" },
       ],
     },
     {
-      title: "Markets",
+      id: "markets",
+      title: t("sidebar.section_markets"),
       icon: TrendingUp,
       items: [
-        { label: "Markets Overview", icon: TrendingUp, path: "/markets" },
+        { id: "markets_overview", label: t("sidebar.markets_overview"), icon: TrendingUp, path: "/markets" },
       ],
     },
     {
-      title: "Portfolio",
+      id: "portfolio",
+      title: t("sidebar.section_portfolio"),
       icon: Wallet,
       items: [
-        { label: "Portfolio Overview", icon: Wallet, path: "/portfolio" },
+        { id: "portfolio_overview", label: t("sidebar.portfolio_overview"), icon: Wallet, path: "/portfolio" },
       ],
     },
     {
-      title: "Wallet & Funds",
+      id: "wallet",
+      title: t("sidebar.section_wallet"),
       icon: Wallet,
       items: [
-        { label: "Deposit Funds", icon: ArrowDownCircle, path: "/deposit" },
-        { label: "Send Asset", icon: ArrowRightCircle, path: "/send-asset" },
-        { label: "Withdraw Funds", icon: ArrowUpCircle, path: "/withdraw" },
+        { id: "deposit_funds", label: t("sidebar.deposit_funds"), icon: ArrowDownCircle, path: "/deposit" },
+        { id: "send_asset", label: t("sidebar.send_asset"), icon: ArrowRightCircle, path: "/send-asset" },
+        { id: "withdraw_funds", label: t("sidebar.withdraw_funds"), icon: ArrowUpCircle, path: "/withdraw" },
       ],
     },
     {
-      title: "Cards",
+      id: "cards",
+      title: t("sidebar.section_cards"),
       icon: CreditCard,
       items: [
-        { label: "My Card", icon: CreditCard, path: "/my-card" },
-        { label: "Request Physical Card", icon: Package, path: "/request-card" },
+        { id: "my_card", label: t("sidebar.my_card"), icon: CreditCard, path: "/my-card" },
+        { id: "request_card", label: t("sidebar.request_card"), icon: Package, path: "/request-card" },
       ],
     },
     {
-      title: "Investment",
+      id: "investment",
+      title: t("sidebar.section_investment"),
       icon: Rocket,
-      items: [{ label: "Upgrade Investment", icon: Rocket, path: "/investment-upgrade" }],
+      items: [{ id: "upgrade_investment", label: t("sidebar.upgrade_investment"), icon: Rocket, path: "/investment-upgrade" }],
     },
     {
-      title: "Communication",
+      id: "communication",
+      title: t("sidebar.section_communication"),
       icon: MessageSquare,
-      items: [{ label: "Message Center", icon: MessageSquare, path: "/messages" }],
+      items: [{ id: "message_center", label: t("sidebar.message_center"), icon: MessageSquare, path: "/messages" }],
     },
     {
-      title: "Referrals",
+      id: "referrals",
+      title: t("sidebar.section_referrals"),
       icon: Gift,
-      items: [{ label: "Referral Program", icon: Gift, path: "/dashboard/referrals" }],
+      items: [{ id: "referral_program", label: t("sidebar.referral_program"), icon: Gift, path: "/dashboard/referrals" }],
     },
     {
-      title: "Settings & Account",
+      id: "settings",
+      title: t("sidebar.section_settings"),
       icon: Settings,
       items: [
-        { label: "Profile", icon: User, path: "/profile" },
-        { label: "Account Settings", icon: Settings, path: "/settings" },
-        { label: "Logout", icon: LogOut, path: "/logout", action: true },
+        { id: "profile", label: t("sidebar.profile"), icon: User, path: "/profile" },
+        { id: "account_settings", label: t("sidebar.account_settings"), icon: Settings, path: "/settings" },
+        { id: "logout", label: t("sidebar.logout"), icon: LogOut, path: "/logout", action: true },
       ],
     },
   ];
@@ -157,7 +169,7 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
           >
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-border">
-              <h2 className="text-lg font-bold">Menu</h2>
+              <h2 className="text-lg font-bold">{t("sidebar.menu")}</h2>
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="w-5 h-5" />
               </Button>
@@ -167,7 +179,7 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
             <nav className="p-4 space-y-2">
               {menuItems.map((section, sectionIndex) => (
                 <motion.div
-                  key={section.title}
+                  key={section.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: sectionIndex * 0.05 }}
@@ -204,7 +216,7 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
                               const comingSoon = flagged && isComingSoon(flagged);
                               return (
                               <motion.div
-                                key={item.label}
+                                key={item.id}
                                 initial={{ opacity: 0, x: -10 }}
                                 animate={{ opacity: 1, x: 0 }}
                                 transition={{ delay: itemIndex * 0.03 }}
@@ -223,7 +235,7 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
                                   >
                                     <item.icon className="w-4 h-4" />
                                     <span className="text-sm">{item.label}</span>
-                                    {comingSoon && <Badge variant="outline" className="text-[10px] px-1 py-0 ml-auto"><Clock className="w-3 h-3 mr-0.5" />Soon</Badge>}
+                                    {comingSoon && <Badge variant="outline" className="text-[10px] px-1 py-0 ml-auto"><Clock className="w-3 h-3 mr-0.5" />{t("sidebar.soon")}</Badge>}
                                   </Link>
                                 ) : (
                                   <div className="flex items-center gap-3 p-3 pl-6 text-muted-foreground">
@@ -246,7 +258,7 @@ export const SidebarNav = ({ isOpen, onClose }: SidebarNavProps) => {
                       </div>
                       {section.items.map((item, itemIndex) => (
                         <motion.div
-                          key={item.label}
+                          key={item.id}
                           initial={{ opacity: 0, x: -10 }}
                           animate={{ opacity: 1, x: 0 }}
                           transition={{ delay: itemIndex * 0.03 }}
