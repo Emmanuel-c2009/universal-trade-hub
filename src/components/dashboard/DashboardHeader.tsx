@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAdminRole } from "@/hooks/useAdminRole";
 import { useUserNotifications } from "@/hooks/useUserNotifications";
 import { formatDistanceToNow } from "date-fns";
+import LanguageSwitcher from "@/components/LanguageSwitcher";
 
 interface DashboardHeaderProps {
   userName?: string;
@@ -59,7 +60,6 @@ export const DashboardHeader = ({
     if (!userId) return;
     
     try {
-      // Get all tickets for the user
       const { data: tickets, error: ticketsError } = await supabase
         .from('support_tickets')
         .select('id, updated_at, user_last_read_at')
@@ -76,7 +76,6 @@ export const DashboardHeader = ({
       let unreadCount = 0;
       
       for (const ticket of tickets) {
-        // Get the latest admin reply
         const { data: replies, error: replyError } = await supabase
           .from('ticket_replies')
           .select('created_at')
@@ -91,7 +90,6 @@ export const DashboardHeader = ({
           const lastAdminReply = new Date(replies[0].created_at);
           const userLastRead = ticket.user_last_read_at ? new Date(ticket.user_last_read_at) : new Date(ticket.updated_at);
           
-          // If admin replied after user last read, it's unread
           if (lastAdminReply > userLastRead) {
             unreadCount++;
           }
@@ -104,7 +102,6 @@ export const DashboardHeader = ({
     }
   };
 
-  // Update user_last_read_at when viewing messages page
   const updateUserLastRead = async () => {
     if (!userId) return;
     
@@ -175,6 +172,9 @@ export const DashboardHeader = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Language Switcher */}
+          <LanguageSwitcher />
+
           {/* Notification Bell with real-time */}
           <Popover>
             <PopoverTrigger asChild>
