@@ -53,6 +53,8 @@ export interface CalculatedTotals {
   bnbValueEUR: number;
 }
 
+// Kept for reference / potential use elsewhere — no longer used by transferBalance,
+// which now delegates the column/table mapping to the transfer_balance() DB function.
 const getColumnName = (type: string): string => {
   const typeMap: Record<string, string> = {
     'funding': 'funding_balance',
@@ -316,6 +318,7 @@ export const useUnifiedBalance = (userId: string | null) => {
     }
   };
 
+  // ---- transferBalance: now delegates to the atomic transfer_balance() DB function ----
   const transferBalance = async (
     fromType: string,
     toType: string,
@@ -333,90 +336,30 @@ export const useUnifiedBalance = (userId: string | null) => {
       return false;
     }
 
-    const fromColumn = getColumnName(fromType);
-    const toColumn = getColumnName(toType);
-
     try {
-      const isCrypto = ['btc_balance', 'eth_balance', 'usd_balance', 'ltc_balance', 'bnb_balance'].includes(fromColumn);
-
-      let currentBalanceData;
-
-      if (isCrypto) {
-        const { data } = await withTimeout(
-          supabase.from('user_wallet_balances').select('*').eq('user_id', userId).single(),
-          8000,
-          "Fetch wallet balance"
-        );
-        currentBalanceData = data;
-      } else {
-        const { data } = await withTimeout(
-          supabase.from('user_balances').select('*').eq('user_id', userId).single(),
-          8000,
-          "Fetch balance"
-        );
-        currentBalanceData = data;
-      }
-
-      const currentFromBalance = currentBalanceData?.[fromColumn] || 0;
-
-      if (currentFromBalance < amount) {
-        console.error('[Transfer] Insufficient balance');
-        return false;
-      }
-
-      let fromAmount = amount;
-      let toAmount = amount;
-
-      if (cryptoSymbol && exchangeRate && exchangeRate !== 1) {
-        const isFromCrypto = ['btc', 'eth', 'usdt', 'ltc', 'bnb'].includes(fromType.toLowerCase());
-        if (isFromCrypto) {
-          toAmount = amount * exchangeRate;
-        } else {
-          toAmount = amount / exchangeRate;
-        }
-      }
-
-      const updates: Record<string, number | string> = {};
-      updates[fromColumn] = currentFromBalance - fromAmount;
-      updates[toColumn] = (currentBalanceData?.[toColumn] || 0) + toAmount;
-      updates.updated_at = new Date().toISOString();
-
-      const tableName = isCrypto ? 'user_wallet_balances' : 'user_balances';
-      const { error: updateError } = await withTimeout(
-        supabase.from(tableName).update(updates).eq('user_id', userId),
-        8000,
-        "Update balance"
-      );
-
-      if (updateError) {
-        // Log full error detail instead of [object Object] so we can see the real cause
-        console.error(
-          '[Transfer] Update error:',
-          'message:', updateError.message,
-          '| details:', updateError.details,
-          '| hint:', updateError.hint,
-          '| code:', updateError.code,
-          '| table:', tableName,
-          '| updates:', JSON.stringify(updates)
-        );
-        return false;
-      }
-
-      await withTimeout(
-        supabase.from('balance_transfers').insert({
-          user_id: userId,
-          from_balance_type: fromType,
-          to_balance_type: toType,
-          amount: amount,
-          crypto_amount: cryptoSymbol ? toAmount : null,
-          crypto_symbol: cryptoSymbol,
-          exchange_rate: exchangeRate,
-          status: 'completed',
-          created_at: new Date().toISOString()
+      const { data, error } = await withTimeout(
+        supabase.rpc('transfer_balance', {
+          p_user_id: userId,
+          p_from_type: fromType,
+          p_to_type: toType,
+          p_amount: amount,
+          p_crypto_symbol: cryptoSymbol ?? null,
+          p_exchange_rate: exchangeRate ?? null,
         }),
         8000,
-        "Log transfer"
+        "Transfer balance"
       );
+
+      if (error) {
+        console.error(
+          '[Transfer] RPC error:',
+          'message:', error.message,
+          '| details:', error.details,
+          '| hint:', error.hint,
+          '| code:', error.code
+        );
+        return false;
+      }
 
       console.log('[Transfer] ✅ Transfer successful!');
       await refreshBalance();
