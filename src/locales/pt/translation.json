@@ -144,28 +144,4 @@
     "portfolio": "Portfólio",
     "profile": "Perfil"
   }
-}    "withdraw_bonus": "Sacar Bônus",
-    "signup_bonus_title": "🎁 Bônus de Cadastro",
-    "signup_bonus_line": "Você recebe €{{amount}} por indicação",
-    "signup_bonus_friend": "Seu amigo recebe €{{amount}}",
-    "deposit_bonus_title": "💰 Bônus de Depósito",
-    "deposit_bonus_line": "{{percent}}% do primeiro depósito do amigo",
-    "deposit_bonus_hint": "Quando fazem o primeiro depósito",
-    "trading_commission_title": "📊 Comissão de Trading",
-    "trading_commission_line": "{{percent}}% das taxas de trading",
-    "trading_commission_hint": "Ganhe em cada operação que fizerem",
-    "history_title": "Histórico de Indicações",
-    "col_user": "Usuário",
-    "col_status": "Status",
-    "col_first_deposit": "Primeiro Depósito",
-    "col_date": "Data",
-    "col_earned": "Ganho",
-    "anonymous": "Anônimo",
-    "no_referrals": "Ainda não há indicações. Compartilhe seu link para começar!",
-    "toast_load_error": "Falha ao carregar os dados de indicação",
-    "toast_copied": "Copiado para a área de transferência!",
-    "toast_min_withdrawal": "O valor mínimo de saque é €{{amount}}",
-    "toast_withdraw_success": "€{{amount}} foram adicionados ao seu Saldo de Bônus! Agora você pode transferi-lo para o Saldo de Financiamento.",
-    "toast_withdraw_failed": "Falha no saque"
-  }
 }
