@@ -57,7 +57,6 @@ export const DashboardHeader = ({
     getEmail();
   }, []);
 
-  // Fetch unread message count for tickets
   const fetchUnreadMessageCount = async () => {
     if (!userId) return;
     
@@ -138,7 +137,7 @@ export const DashboardHeader = ({
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
-    toast({ title: "Signed out successfully" });
+    toast({ title: t("header.signed_out") });
     navigate("/");
   };
 
@@ -151,14 +150,14 @@ export const DashboardHeader = ({
     if (verificationStatus === "verified") {
       return (
         <Badge className="bg-emerald-500 text-white flex items-center gap-1">
-          <ShieldCheck className="w-3 h-3" /> Verified
+          <ShieldCheck className="w-3 h-3" /> {t("header.verified")}
         </Badge>
       );
     }
     if (verificationStatus === "pending") {
-      return <Badge className="bg-gold text-black">Pending</Badge>;
+      return <Badge className="bg-gold text-black">{t("header.pending")}</Badge>;
     }
-    return <Badge variant="outline">Not Verified</Badge>;
+    return <Badge variant="outline">{t("header.not_verified")}</Badge>;
   };
 
   const isSuperAdmin = userEmail === "universalstocktrade24@gmail.com";
@@ -174,10 +173,8 @@ export const DashboardHeader = ({
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Language Switcher */}
           <LanguageSwitcher />
 
-          {/* Notification Bell with real-time */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="ghost" size="icon" className="relative">
@@ -192,15 +189,15 @@ export const DashboardHeader = ({
             <PopoverContent align="end" className="w-80">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h4 className="font-semibold text-sm">Notifications</h4>
+                  <h4 className="font-semibold text-sm">{t("header.notifications")}</h4>
                   {unreadCount > 0 && (
                     <Button variant="ghost" size="sm" className="text-xs" onClick={markAllRead}>
-                      Mark all read
+                      {t("header.mark_all_read")}
                     </Button>
                   )}
                 </div>
                 {notifications.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">No notifications</p>
+                  <p className="text-sm text-muted-foreground py-4 text-center">{t("header.no_notifications")}</p>
                 ) : (
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {notifications.slice(0, 10).map((n) => (
@@ -227,7 +224,6 @@ export const DashboardHeader = ({
             </PopoverContent>
           </Popover>
 
-          {/* Message Icon with unread count */}
           <Button 
             variant="ghost" 
             size="icon" 
@@ -271,33 +267,33 @@ export const DashboardHeader = ({
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => navigate("/profile")}>
                 <UserIcon className="mr-2 h-4 w-4" />
-                View Profile
+                {t("header.view_profile")}
               </DropdownMenuItem>
               
               {isAdmin && (
                 <DropdownMenuItem onClick={() => navigate("/admin")} className="text-gold">
                   <Settings className="mr-2 h-4 w-4" />
-                  ⚙️ Switch to Admin Dashboard
+                  ⚙️ {t("header.admin_dashboard")}
                 </DropdownMenuItem>
               )}
 
               {verificationStatus !== "verified" && (
                 <DropdownMenuItem onClick={() => navigate("/verification")}>
                   <Shield className="mr-2 h-4 w-4" />
-                  Verify Account
+                  {t("header.verify_account")}
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={toggleTheme}>
                 {theme === "light" ? (
-                  <><Moon className="mr-2 h-4 w-4" />Dark Mode</>
+                  <><Moon className="mr-2 h-4 w-4" />{t("header.dark_mode")}</>
                 ) : (
-                  <><Sun className="mr-2 h-4 w-4" />Light Mode</>
+                  <><Sun className="mr-2 h-4 w-4" />{t("header.light_mode")}</>
                 )}
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut}>
                 <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                {t("header.logout")}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
