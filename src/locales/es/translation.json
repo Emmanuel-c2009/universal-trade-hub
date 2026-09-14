@@ -1,0 +1,7 @@
+{
+  "welcome": "Bienvenido",
+  "transfer_funds": "Transferir Fondos",
+  "balance": "Saldo",
+  "transfer_success": "Transferencia completada con éxito",
+  "transfer_error": "Algo salió mal. Inténtalo de nuevo."
+}
