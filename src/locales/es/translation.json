@@ -3,5 +3,15 @@
   "transfer_funds": "Transferir Fondos",
   "balance": "Saldo",
   "transfer_success": "Transferencia completada con éxito",
-  "transfer_error": "Algo salió mal. Inténtalo de nuevo."
+  "transfer_error": "Algo salió mal. Inténtalo de nuevo.",
+  "dashboard": {
+    "trader": "Trader",
+    "verify_title": "Verifica Tu Cuenta",
+    "verify_description": "Completa la verificación para desbloquear todas las funciones de trading.",
+    "verify_button": "Iniciar Verificación",
+    "greeting_morning": "Buenos días",
+    "greeting_afternoon": "Buenas tardes",
+    "greeting_evening": "Buenas noches",
+    "greeting_subtitle": "Esto es lo que está pasando con tu trading hoy"
+  }
 }
