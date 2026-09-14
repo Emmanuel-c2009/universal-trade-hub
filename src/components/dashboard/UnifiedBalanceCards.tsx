@@ -12,6 +12,7 @@ import { UnifiedBalance, CalculatedTotals, CryptoPrice } from "@/hooks/useUnifie
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTranslation } from "react-i18next";
 
 interface UnifiedBalanceCardsProps {
   balance: UnifiedBalance | null;
@@ -33,6 +34,7 @@ export const UnifiedBalanceCards = ({
   loading,
 }: UnifiedBalanceCardsProps) => {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [stats, setStats] = useState<TradingStats>({ totalProfit: 0, winRate: 0, totalTrades: 0 });
 
   // Calculate real stats from DB
@@ -70,13 +72,12 @@ export const UnifiedBalanceCards = ({
   }
 
   const fiatBalances = [
-    { label: "Funding Balance", value: totals.fundingBalance, icon: Wallet, color: "text-secondary", bgColor: "bg-secondary/10" },
-    { label: "Trading Balance", value: totals.tradingBalance, icon: Activity, color: "text-accent", bgColor: "bg-accent/10" },
-    { label: "Bonus Balance", value: totals.bonusBalance, icon: Gift, color: "text-gold", bgColor: "bg-gold/10" },
-    { label: "Challenges Balance", value: totals.challengesBalance, icon: Target, color: "text-primary", bgColor: "bg-primary/10" },
+    { label: t("balance_card.funding_balance"), value: totals.fundingBalance, icon: Wallet, color: "text-secondary", bgColor: "bg-secondary/10" },
+    { label: t("balance_card.trading_balance"), value: totals.tradingBalance, icon: Activity, color: "text-accent", bgColor: "bg-accent/10" },
+    { label: t("balance_card.bonus_balance"), value: totals.bonusBalance, icon: Gift, color: "text-gold", bgColor: "bg-gold/10" },
+    { label: t("balance_card.challenges_balance"), value: totals.challengesBalance, icon: Target, color: "text-primary", bgColor: "bg-primary/10" },
   ];
 
-  // Use the display properties (btc_balance, eth_balance, etc.) that we added to UnifiedBalance
   const cryptoBalances = [
     { symbol: "BTC", name: "Bitcoin", balance: balance?.btc_balance || 0, valueEUR: totals.btcValueEUR, change: cryptoPrices.find(p => p.symbol === 'BTC')?.change_24h || 0, color: "text-orange-500" },
     { symbol: "ETH", name: "Ethereum", balance: balance?.eth_balance || 0, valueEUR: totals.ethValueEUR, change: cryptoPrices.find(p => p.symbol === 'ETH')?.change_24h || 0, color: "text-purple-500" },
@@ -86,9 +87,9 @@ export const UnifiedBalanceCards = ({
   ];
 
   const tradingMetrics = [
-    { label: "Total Profit", value: formatEUR(stats.totalProfit), icon: Trophy, color: stats.totalProfit >= 0 ? "text-green-500" : "text-red-500" },
-    { label: "Win Rate", value: `${stats.winRate.toFixed(1)}%`, icon: TrendingUp, color: "text-secondary" },
-    { label: "Total Trades", value: stats.totalTrades.toString(), icon: Activity, color: "text-gold" },
+    { label: t("balance_card.total_profit"), value: formatEUR(stats.totalProfit), icon: Trophy, color: stats.totalProfit >= 0 ? "text-green-500" : "text-red-500" },
+    { label: t("balance_card.win_rate"), value: `${stats.winRate.toFixed(1)}%`, icon: TrendingUp, color: "text-secondary" },
+    { label: t("balance_card.total_trades"), value: stats.totalTrades.toString(), icon: Activity, color: "text-gold" },
   ];
 
   return (
@@ -100,7 +101,7 @@ export const UnifiedBalanceCards = ({
           <div className="relative">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-lg text-muted-foreground mb-1">Total Assets</h3>
+                <h3 className="text-lg text-muted-foreground mb-1">{t("balance_card.total_assets")}</h3>
                 <p className="text-5xl font-bold">{formatEUR(totals.totalAssets)}</p>
               </div>
               <div className="flex items-center gap-2">
@@ -114,19 +115,19 @@ export const UnifiedBalanceCards = ({
                 <span className={`text-lg font-semibold ${(balance?.today_pnl || 0) >= 0 ? "text-green-500" : "text-red-500"}`}>
                   {(balance?.today_pnl || 0) >= 0 ? "+" : ""}{formatEUR(balance?.today_pnl || 0)}
                 </span>
-                <span className="text-muted-foreground">Today's P&L</span>
+                <span className="text-muted-foreground">{t("balance_card.today_pnl")}</span>
               </div>
               <div className="flex items-center gap-2">
                 <PiggyBank className="w-5 h-5 text-purple-500" />
                 <span className="text-lg font-semibold text-purple-400">{formatEUR(totals.cryptoValueEUR)}</span>
-                <span className="text-muted-foreground">in Crypto</span>
+                <span className="text-muted-foreground">{t("balance_card.in_crypto")}</span>
               </div>
             </div>
             <div className="flex gap-2">
-              <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90" onClick={() => navigate('/deposit')}>Deposit</Button>
-              <Button size="sm" variant="outline" onClick={() => navigate('/withdraw')}>Withdraw</Button>
+              <Button size="sm" className="bg-secondary text-secondary-foreground hover:bg-secondary/90" onClick={() => navigate('/deposit')}>{t("balance_card.deposit")}</Button>
+              <Button size="sm" variant="outline" onClick={() => navigate('/withdraw')}>{t("balance_card.withdraw")}</Button>
               <Button size="sm" variant="outline" onClick={() => navigate('/transfer')}>
-                <ArrowRightLeft className="w-4 h-4 mr-2" />Transfer
+                <ArrowRightLeft className="w-4 h-4 mr-2" />{t("balance_card.transfer")}
               </Button>
             </div>
           </div>
@@ -152,7 +153,7 @@ export const UnifiedBalanceCards = ({
       <div>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Bitcoin className="w-5 h-5 text-orange-500" />Crypto Wallets
+            <Bitcoin className="w-5 h-5 text-orange-500" />{t("balance_card.crypto_wallets")}
           </h3>
           <Button size="sm" variant="outline" onClick={() => navigate('/swap')}>
             <ArrowRightLeft className="w-4 h-4 mr-2" />Swap
@@ -198,5 +199,4 @@ export const UnifiedBalanceCards = ({
   );
 };
 
-// ✅ ADD DEFAULT EXPORT FOR THE COMPONENT
 export default UnifiedBalanceCards;
