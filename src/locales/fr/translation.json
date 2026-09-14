@@ -13,5 +13,20 @@
     "greeting_afternoon": "Bon après-midi",
     "greeting_evening": "Bonsoir",
     "greeting_subtitle": "Voici ce qui se passe avec votre trading aujourd'hui"
+  },
+  "header": {
+    "verified": "Vérifié",
+    "pending": "En attente",
+    "not_verified": "Non Vérifié",
+    "notifications": "Notifications",
+    "mark_all_read": "Tout marquer comme lu",
+    "no_notifications": "Aucune notification",
+    "view_profile": "Voir le Profil",
+    "admin_dashboard": "Passer au Tableau Admin",
+    "verify_account": "Vérifier le Compte",
+    "dark_mode": "Mode Sombre",
+    "light_mode": "Mode Clair",
+    "logout": "Déconnexion",
+    "signed_out": "Déconnexion réussie"
   }
 }
