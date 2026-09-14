@@ -8,6 +8,10 @@
     "trader": "Trader",
     "verify_title": "Verify Your Account",
     "verify_description": "Complete verification to unlock all trading features.",
-    "verify_button": "Start Verification"
+    "verify_button": "Start Verification",
+    "greeting_morning": "Good morning",
+    "greeting_afternoon": "Good afternoon",
+    "greeting_evening": "Good evening",
+    "greeting_subtitle": "Here's what's happening with your trading today"
   }
 }
