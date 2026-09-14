@@ -13,5 +13,20 @@
     "greeting_afternoon": "Good afternoon",
     "greeting_evening": "Good evening",
     "greeting_subtitle": "Here's what's happening with your trading today"
+  },
+  "header": {
+    "verified": "Verified",
+    "pending": "Pending",
+    "not_verified": "Not Verified",
+    "notifications": "Notifications",
+    "mark_all_read": "Mark all read",
+    "no_notifications": "No notifications",
+    "view_profile": "View Profile",
+    "admin_dashboard": "Switch to Admin Dashboard",
+    "verify_account": "Verify Account",
+    "dark_mode": "Dark Mode",
+    "light_mode": "Light Mode",
+    "logout": "Logout",
+    "signed_out": "Signed out successfully"
   }
 }
