@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Copy, Check, Users, Gift, TrendingUp, Download, Share2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface ReferralStats {
   referral_code: string;
@@ -24,6 +25,7 @@ interface ReferralStats {
 }
 
 export const ReferralDashboard = () => {
+  const { t } = useTranslation();
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [withdrawing, setWithdrawing] = useState(false);
@@ -35,13 +37,11 @@ export const ReferralDashboard = () => {
 
   const fetchReferralStats = async () => {
     try {
-      // Get user's profile for referral code
       const { data: profile } = await supabase
         .from('profiles')
         .select('referral_code, total_referral_earnings, pending_referral_earnings, total_referrals_count')
         .single();
 
-      // Get referrals list
       const { data: referrals } = await supabase
         .from('referrals')
         .select(`
@@ -54,14 +54,12 @@ export const ReferralDashboard = () => {
         .eq('referrer_id', (await supabase.auth.getUser()).data.user?.id)
         .order('created_at', { ascending: false });
 
-      // Get earnings
       const { data: earnings } = await supabase
         .from('referral_earnings')
         .select('*')
         .eq('user_id', (await supabase.auth.getUser()).data.user?.id)
         .order('created_at', { ascending: false });
 
-      // Get settings
       const { data: settings } = await supabase
         .from('referral_settings')
         .select('*')
@@ -88,7 +86,7 @@ export const ReferralDashboard = () => {
       });
     } catch (error) {
       console.error('Error fetching referral stats:', error);
-      toast.error('Failed to load referral data');
+      toast.error(t("referral.toast_load_error"));
     } finally {
       setLoading(false);
     }
@@ -97,13 +95,13 @@ export const ReferralDashboard = () => {
   const copyToClipboard = async (text: string) => {
     await navigator.clipboard.writeText(text);
     setCopied(true);
-    toast.success('Copied to clipboard!');
+    toast.success(t("referral.toast_copied"));
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleWithdrawBonus = async () => {
     if (!stats || stats.pending_earnings < stats.settings.payout_threshold) {
-      toast.error(`Minimum withdrawal amount is €${stats?.settings.payout_threshold}`);
+      toast.error(t("referral.toast_min_withdrawal", { amount: stats?.settings.payout_threshold }));
       return;
     }
 
@@ -114,20 +112,17 @@ export const ReferralDashboard = () => {
       });
 
       if (error) throw error;
-      
-      // Show success message with where the money went
-      toast.success(`€${stats.pending_earnings} has been added to your Bonus Balance! You can now transfer it to Funding Balance.`);
-      
-      // Refresh the stats
+
+      toast.success(t("referral.toast_withdraw_success", { amount: stats.pending_earnings.toFixed(2) }));
+
       await fetchReferralStats();
-      
-      // Small delay to show success message
+
       setTimeout(() => {
         window.location.reload();
       }, 1500);
-      
+
     } catch (error: any) {
-      toast.error(error.message || 'Withdrawal failed');
+      toast.error(error.message || t("referral.toast_withdraw_failed"));
     } finally {
       setWithdrawing(false);
     }
@@ -145,8 +140,8 @@ export const ReferralDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold">Referral Program</h2>
-        <p className="text-muted-foreground mt-1">Invite friends and earn rewards</p>
+        <h2 className="text-2xl font-bold">{t("referral.title")}</h2>
+        <p className="text-muted-foreground mt-1">{t("referral.subtitle")}</p>
       </div>
 
       {/* Referral Link Section */}
@@ -154,7 +149,7 @@ export const ReferralDashboard = () => {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Share2 className="w-5 h-5 text-secondary" />
-            Your Referral Link
+            {t("referral.your_link")}
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -164,16 +159,16 @@ export const ReferralDashboard = () => {
             </div>
             <Button onClick={() => copyToClipboard(stats?.share_link || '')} className="bg-secondary hover:bg-secondary/80">
               {copied ? <Check className="w-4 h-4 mr-2" /> : <Copy className="w-4 h-4 mr-2" />}
-              {copied ? 'Copied!' : 'Copy Link'}
+              {copied ? t("referral.copied") : t("referral.copy_link")}
             </Button>
           </div>
           <div className="bg-muted/50 rounded-lg p-3">
             <p className="text-sm">
-              <span className="font-medium">Referral Code:</span>{' '}
+              <span className="font-medium">{t("referral.referral_code_label")}</span>{' '}
               <code className="text-secondary font-mono">{stats?.referral_code}</code>
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Share this link with friends. When they sign up, you both get bonuses!
+              {t("referral.share_hint")}
             </p>
           </div>
         </CardContent>
@@ -183,7 +178,7 @@ export const ReferralDashboard = () => {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Referrals</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("referral.total_referrals")}</CardTitle>
             <Users className="w-4 h-4 text-secondary" />
           </CardHeader>
           <CardContent>
@@ -193,7 +188,7 @@ export const ReferralDashboard = () => {
 
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Earned</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("referral.total_earned")}</CardTitle>
             <Gift className="w-4 h-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
@@ -203,7 +198,7 @@ export const ReferralDashboard = () => {
 
         <Card className="bg-card border-border">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pending Earnings</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">{t("referral.pending_earnings")}</CardTitle>
             <TrendingUp className="w-4 h-4 text-gold" />
           </CardHeader>
           <CardContent>
@@ -218,15 +213,15 @@ export const ReferralDashboard = () => {
           <CardContent className="pt-6">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
               <div>
-                <h3 className="font-semibold text-lg">Ready to Withdraw?</h3>
+                <h3 className="font-semibold text-lg">{t("referral.ready_to_withdraw")}</h3>
                 <p className="text-sm text-muted-foreground">
-                  You have €{stats.pending_earnings.toFixed(2)} available
-                  {stats.settings.payout_threshold && stats.pending_earnings < stats.settings.payout_threshold && 
-                    ` (Minimum: €${stats.settings.payout_threshold})`
+                  {t("referral.you_have_available", { amount: stats.pending_earnings.toFixed(2) })}
+                  {stats.settings.payout_threshold && stats.pending_earnings < stats.settings.payout_threshold &&
+                    t("referral.min_withdrawal", { amount: stats.settings.payout_threshold })
                   }
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  💡 Funds will be added to your Bonus Balance, then use Transfer Balance to move to Funding Balance
+                  {t("referral.withdraw_hint")}
                 </p>
               </div>
               <Button
@@ -235,7 +230,7 @@ export const ReferralDashboard = () => {
                 className="bg-secondary hover:bg-secondary/80"
               >
                 <Download className="w-4 h-4 mr-2" />
-                {withdrawing ? 'Processing...' : 'Withdraw Bonus'}
+                {withdrawing ? t("referral.processing") : t("referral.withdraw_bonus")}
               </Button>
             </div>
           </CardContent>
@@ -246,42 +241,42 @@ export const ReferralDashboard = () => {
       <div className="grid gap-4 md:grid-cols-3">
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">🎁 Signup Bonus</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("referral.signup_bonus_title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              You get <span className="font-bold text-secondary">€{stats?.settings.signup_bonus_referrer}</span> per referral
+              {t("referral.signup_bonus_line", { amount: stats?.settings.signup_bonus_referrer })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Your friend gets €{stats?.settings.signup_bonus_referred}
+              {t("referral.signup_bonus_friend", { amount: stats?.settings.signup_bonus_referred })}
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">💰 Deposit Bonus</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("referral.deposit_bonus_title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              <span className="font-bold text-secondary">{stats?.settings.deposit_bonus_percentage}%</span> of friend's first deposit
+              {t("referral.deposit_bonus_line", { percent: stats?.settings.deposit_bonus_percentage })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              When they make their first deposit
+              {t("referral.deposit_bonus_hint")}
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-card border-border">
           <CardHeader>
-            <CardTitle className="text-sm font-medium">📊 Trading Commission</CardTitle>
+            <CardTitle className="text-sm font-medium">{t("referral.trading_commission_title")}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm">
-              <span className="font-bold text-secondary">{stats?.settings.trading_commission_percentage}%</span> of trading fees
+              {t("referral.trading_commission_line", { percent: stats?.settings.trading_commission_percentage })}
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Earn from every trade they make
+              {t("referral.trading_commission_hint")}
             </p>
           </CardContent>
         </Card>
@@ -290,7 +285,7 @@ export const ReferralDashboard = () => {
       {/* Referral History Table */}
       <Card className="bg-card border-border">
         <CardHeader>
-          <CardTitle>Referral History</CardTitle>
+          <CardTitle>{t("referral.history_title")}</CardTitle>
         </CardHeader>
         <CardContent>
           {stats?.referrals && stats.referrals.length > 0 ? (
@@ -298,11 +293,11 @@ export const ReferralDashboard = () => {
               <table className="w-full">
                 <thead className="border-b border-border">
                   <tr>
-                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">User</th>
-                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">Status</th>
-                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">First Deposit</th>
-                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">Date</th>
-                    <th className="text-right py-3 text-sm font-medium text-muted-foreground">Earned</th>
+                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">{t("referral.col_user")}</th>
+                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">{t("referral.col_status")}</th>
+                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">{t("referral.col_first_deposit")}</th>
+                    <th className="text-left py-3 text-sm font-medium text-muted-foreground">{t("referral.col_date")}</th>
+                    <th className="text-right py-3 text-sm font-medium text-muted-foreground">{t("referral.col_earned")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -312,12 +307,12 @@ export const ReferralDashboard = () => {
                     return (
                       <tr key={referral.id} className="hover:bg-muted/50">
                         <td className="py-3 text-sm">
-                          {referral.referred?.full_name || referral.referred?.email?.split('@')[0] || 'Anonymous'}
+                          {referral.referred?.full_name || referral.referred?.email?.split('@')[0] || t("referral.anonymous")}
                         </td>
                         <td className="py-3">
                           <span className={`inline-flex px-2 py-1 rounded-full text-xs ${
-                            referral.status === 'completed' 
-                              ? 'bg-emerald-500/20 text-emerald-500' 
+                            referral.status === 'completed'
+                              ? 'bg-emerald-500/20 text-emerald-500'
                               : 'bg-yellow-500/20 text-yellow-500'
                           }`}>
                             {referral.status}
@@ -340,7 +335,7 @@ export const ReferralDashboard = () => {
             </div>
           ) : (
             <p className="text-center text-muted-foreground py-8">
-              No referrals yet. Share your link to get started!
+              {t("referral.no_referrals")}
             </p>
           )}
         </CardContent>
