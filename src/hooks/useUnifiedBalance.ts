@@ -81,6 +81,10 @@ const getColumnName = (type: string): string => {
   return typeMap[type.toLowerCase()] || type;
 };
 
+// Small random delay so a tab-return doesn't fire every page's requests
+// (and collide with the crypto-price cron job) in the exact same instant.
+const jitterDelay = () => new Promise((resolve) => setTimeout(resolve, Math.random() * 1500));
+
 export const useUnifiedBalance = (userId: string | null) => {
   const [balance, setBalance] = useState<UnifiedBalance | null>(null);
   const [cryptoPrices, setCryptoPrices] = useState<CryptoPrice[]>([]);
@@ -107,72 +111,94 @@ export const useUnifiedBalance = (userId: string | null) => {
 
     console.log('[Balance] Fetching for user:', userId);
 
-    const { data: eurData, error: eurError } = await supabase
-      .from('user_balances')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
+    try {
+      let eurData: any = null;
+      let cryptoData: any = null;
+      let todayProfit: any = null;
+      let totalProfit: any = null;
 
-    if (eurError) {
-      console.error('[Balance] EUR fetch error:', eurError);
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('user_balances').select('*').eq('user_id', userId).maybeSingle(),
+          8000,
+          "Fetch EUR balance"
+        );
+        if (error) console.error('[Balance] EUR fetch error:', error);
+        eurData = data;
+      } catch (err) {
+        console.error('[Balance] EUR fetch timed out or failed:', err);
+      }
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('user_wallet_balances').select('*').eq('user_id', userId).maybeSingle(),
+          8000,
+          "Fetch crypto balance"
+        );
+        if (error) console.error('[Balance] Crypto fetch error:', error);
+        cryptoData = data;
+      } catch (err) {
+        console.error('[Balance] Crypto fetch timed out or failed:', err);
+      }
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.rpc('get_user_today_profit', { user_id_param: userId }),
+          8000,
+          "Fetch today profit"
+        );
+        if (error) console.error('[Balance] Today P&L fetch error:', error);
+        todayProfit = data;
+      } catch (err) {
+        console.error('[Balance] Today P&L fetch timed out or failed:', err);
+      }
+
+      try {
+        const { data, error } = await withTimeout(
+          supabase.rpc('get_user_total_profit', { user_id_param: userId }),
+          8000,
+          "Fetch total profit"
+        );
+        if (error) console.error('[Balance] Total profit fetch error:', error);
+        totalProfit = data;
+      } catch (err) {
+        console.error('[Balance] Total profit fetch timed out or failed:', err);
+      }
+
+      const eurBalances = eurData || {};
+      const cryptoBalances = cryptoData || {};
+
+      const combinedBalance: UnifiedBalance = {
+        id: eurBalances.id || cryptoBalances.id || '',
+        user_id: userId,
+        balance_usdt: cryptoBalances.usd_balance || 0,
+        balance_btc: cryptoBalances.btc_balance || 0,
+        balance_eth: cryptoBalances.eth_balance || 0,
+        balance_ltc: cryptoBalances.ltc_balance || 0,
+        balance_bnb: cryptoBalances.bnb_balance || 0,
+        btc_balance: cryptoBalances.btc_balance || 0,
+        eth_balance: cryptoBalances.eth_balance || 0,
+        usdt_balance: cryptoBalances.usd_balance || 0,
+        ltc_balance: cryptoBalances.ltc_balance || 0,
+        bnb_balance: cryptoBalances.bnb_balance || 0,
+        litecoin_balance: cryptoBalances.ltc_balance || 0,
+        funding_balance: eurBalances.funding_balance || 0,
+        trading_balance: eurBalances.trading_balance || 0,
+        bonus_balance: eurBalances.bonus_balance || 0,
+        challenges_balance: eurBalances.challenges_balance || 0,
+        main_balance: eurBalances.funding_balance || 0,
+        balance_eur: eurBalances.balance_eur || 0,
+        today_pnl: todayProfit || 0,
+        total_profit: totalProfit || 0,
+        is_test_account: eurBalances.is_test_account || false,
+        created_at: eurBalances.created_at || cryptoBalances.last_updated || new Date().toISOString(),
+        updated_at: eurBalances.updated_at || cryptoBalances.last_updated || new Date().toISOString(),
+      };
+
+      setBalance(combinedBalance);
+    } finally {
+      setLoading(false);
     }
-
-    const { data: cryptoData, error: cryptoError } = await supabase
-      .from('user_wallet_balances')
-      .select('*')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (cryptoError) {
-      console.error('[Balance] Crypto fetch error:', cryptoError);
-    }
-
-    const { data: todayProfit, error: todayError } = await supabase
-      .rpc('get_user_today_profit', { user_id_param: userId });
-
-    if (todayError) {
-      console.error('[Balance] Today P&L fetch error:', todayError);
-    }
-
-    const { data: totalProfit, error: totalError } = await supabase
-      .rpc('get_user_total_profit', { user_id_param: userId });
-
-    if (totalError) {
-      console.error('[Balance] Total profit fetch error:', totalError);
-    }
-
-    const eurBalances = eurData || {};
-    const cryptoBalances = cryptoData || {};
-
-    const combinedBalance: UnifiedBalance = {
-      id: eurBalances.id || cryptoBalances.id || '',
-      user_id: userId,
-      balance_usdt: cryptoBalances.usd_balance || 0,
-      balance_btc: cryptoBalances.btc_balance || 0,
-      balance_eth: cryptoBalances.eth_balance || 0,
-      balance_ltc: cryptoBalances.ltc_balance || 0,
-      balance_bnb: cryptoBalances.bnb_balance || 0,
-      btc_balance: cryptoBalances.btc_balance || 0,
-      eth_balance: cryptoBalances.eth_balance || 0,
-      usdt_balance: cryptoBalances.usd_balance || 0,
-      ltc_balance: cryptoBalances.ltc_balance || 0,
-      bnb_balance: cryptoBalances.bnb_balance || 0,
-      litecoin_balance: cryptoBalances.ltc_balance || 0,
-      funding_balance: eurBalances.funding_balance || 0,
-      trading_balance: eurBalances.trading_balance || 0,
-      bonus_balance: eurBalances.bonus_balance || 0,
-      challenges_balance: eurBalances.challenges_balance || 0,
-      main_balance: eurBalances.funding_balance || 0,
-      balance_eur: eurBalances.balance_eur || 0,
-      today_pnl: todayProfit || 0,
-      total_profit: totalProfit || 0,
-      is_test_account: eurBalances.is_test_account || false,
-      created_at: eurBalances.created_at || cryptoBalances.last_updated || new Date().toISOString(),
-      updated_at: eurBalances.updated_at || cryptoBalances.last_updated || new Date().toISOString(),
-    };
-
-    setBalance(combinedBalance);
-    setLoading(false);
   }, [userId]);
 
   const refreshBalance = useCallback(async () => {
@@ -181,13 +207,21 @@ export const useUnifiedBalance = (userId: string | null) => {
   }, [fetchBalance]);
 
   const fetchCryptoPrices = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('crypto_prices')
-      .select('*');
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('crypto_prices').select('*'),
+        8000,
+        "Fetch crypto prices"
+      );
 
-    if (!error && data) {
-      setCryptoPrices(data);
-      console.log('[Prices] Loaded', data.length, 'crypto prices');
+      if (!error && data) {
+        setCryptoPrices(data);
+        console.log('[Prices] Loaded', data.length, 'crypto prices');
+      } else if (error) {
+        console.error('[Prices] Fetch error:', error);
+      }
+    } catch (err) {
+      console.error('[Prices] Fetch timed out or failed:', err);
     }
   }, []);
 
@@ -264,10 +298,19 @@ export const useUnifiedBalance = (userId: string | null) => {
       )
       .subscribe();
 
+    // On returning to this tab: wait a short, randomized moment before
+    // refetching, instead of firing immediately. This spreads out requests
+    // across pages/tabs and avoids landing every request in the exact same
+    // instant a background cron job (or other pages) may also be firing.
+    let cancelled = false;
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchBalance();
-        fetchCryptoPrices();
+        jitterDelay().then(() => {
+          if (!cancelled) {
+            fetchBalance();
+            fetchCryptoPrices();
+          }
+        });
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -275,6 +318,7 @@ export const useUnifiedBalance = (userId: string | null) => {
     const priceInterval = setInterval(fetchCryptoPrices, 30000);
 
     return () => {
+      cancelled = true;
       supabase.removeChannel(channel);
       document.removeEventListener('visibilitychange', handleVisibility);
       clearInterval(priceInterval);
@@ -445,3 +489,4 @@ export const useUnifiedBalance = (userId: string | null) => {
     getBalanceByType,
   };
 };
+        
