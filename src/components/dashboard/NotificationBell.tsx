@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle, XCircle, Clock, Info, Megaphone } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface Notification {
   id: string;
@@ -14,6 +15,7 @@ interface Notification {
 }
 
 export default function NotificationBell({ userId }: { userId: string }) {
+  const { t } = useTranslation();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isOpen, setIsOpen] = useState(false);
@@ -74,7 +76,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       .from('user_notifications')
       .update({ is_read: true })
       .eq('id', id);
-    
+
     setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, is_read: true } : n)
     );
@@ -87,7 +89,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
       .update({ is_read: true })
       .eq('user_id', userId)
       .eq('is_read', false);
-    
+
     setNotifications(prev =>
       prev.map(n => ({ ...n, is_read: true }))
     );
@@ -106,13 +108,13 @@ export default function NotificationBell({ userId }: { userId: string }) {
 
   const getTimeAgo = (date: string) => {
     const seconds = Math.floor((new Date().getTime() - new Date(date).getTime()) / 1000);
-    if (seconds < 60) return 'just now';
+    if (seconds < 60) return t("notifications.just_now");
     const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) return `${minutes} min ago`;
+    if (minutes < 60) return t("notifications.minutes_ago", { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    if (hours < 24) return t("notifications.hours_ago", { count: hours });
     const days = Math.floor(hours / 24);
-    return `${days} day${days > 1 ? 's' : ''} ago`;
+    return t("notifications.days_ago", { count: days });
   };
 
   return (
@@ -132,13 +134,13 @@ export default function NotificationBell({ userId }: { userId: string }) {
       {isOpen && (
         <div className="absolute right-0 mt-2 w-96 bg-white rounded-lg shadow-lg border border-gray-200 z-50 overflow-hidden">
           <div className="flex justify-between items-center px-4 py-3 border-b border-gray-200 bg-gray-50">
-            <h3 className="font-semibold text-gray-900">Notifications</h3>
+            <h3 className="font-semibold text-gray-900">{t("notifications.title")}</h3>
             {unreadCount > 0 && (
               <button
                 onClick={markAllAsRead}
                 className="text-xs text-blue-600 hover:text-blue-800"
               >
-                Mark all as read
+                {t("notifications.mark_all_as_read")}
               </button>
             )}
           </div>
@@ -147,7 +149,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
             {notifications.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <Bell className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">No notifications yet</p>
+                <p className="text-sm">{t("notifications.empty")}</p>
               </div>
             ) : (
               notifications.map((notif) => (
@@ -179,7 +181,7 @@ export default function NotificationBell({ userId }: { userId: string }) {
               onClick={() => navigate('/notifications')}
               className="text-sm text-blue-600 hover:text-blue-800"
             >
-              View all notifications
+              {t("notifications.view_all")}
             </button>
           </div>
         </div>
